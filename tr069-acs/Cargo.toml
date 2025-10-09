@@ -19,6 +19,10 @@ tracing-bunyan-formatter = "0.3"
 tracing-subscriber = { version = "0.3.20" , features = ["registry", "env-filter"]}
 tracing-log = "0.2.0"
 serde = { version = "1.0.228", features = ["derive"]}
+http-body-util = "0.1.3"
+
+[dev-dependencies]
+reqwest = "0.12.13"
 
 [features]
 default = ["server"]

@@ -1,11 +1,12 @@
+pub mod session;
+
+use crate::telemetry::{get_subscriber, init_subscriber};
 use quick_xml::de::*;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::OnceLock;
-use tracing::{error, info, level_filters::LevelFilter, trace};
-
-use crate::telemetry::{get_subscriber, init_subscriber};
+use tracing::{level_filters::LevelFilter, trace};
 
 #[derive(Debug)]
 pub enum CwmpMsg {
@@ -13,7 +14,7 @@ pub enum CwmpMsg {
 }
 
 #[derive(Debug, Deserialize)]
-enum EventStruct {
+enum EventCode {
     Event0BootStrap,
     Event1Boot,
     Event2Periodic,
@@ -39,15 +40,42 @@ enum EventStruct {
     EventMVendorEvent,
 }
 
+#[derive(Debug, Deserialize)]
+struct CommandKey {
+    value: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EventStruct {
+    // #[serde(rename = "@arrayType")]
+    // nb_of_event: Option<String>,
+    #[serde(rename = "EventCode")]
+    event_code: Option<String>,
+    #[serde(rename = "CommandKey")]
+    command_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct EventList {
+    #[serde(rename = "@arrayType")]
+    nb_of_event: Option<String>,
+
+    #[serde(rename = "EventStruct")]
+    event_struct: Vec<EventStruct>,
+}
+
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename = "pascal_case")]
 struct DeviceIDStruct {
-    // #[serde(rename = "Manufacturer")]
+    #[serde(rename = "Manufacturer")]
     manufacturer: Option<String>,
-    // #[serde(rename = "OUI")]
+
+    #[serde(rename = "OUI")]
     oui: Option<String>,
-    // #[serde(rename = "ProductClass")]
+
+    #[serde(rename = "ProductClass")]
     product_class: Option<String>,
+
+    #[serde(rename = "SerialNumber")]
     serial_number: Option<String>,
 }
 
@@ -62,78 +90,51 @@ struct DeviceIDStruct {
 // The namespaces xsi and xsd used above are as defined in [12].
 #[derive(Debug, Deserialize)]
 struct AnySimpleType {
+    #[serde(rename = "@type")]
+    xsi_type: Option<String>,
+
+    #[serde(rename = "$text")]
     value: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ParameterValueStruct {
+    #[serde(rename = "Name")]
     name: Option<String>,
     //This is the value the Parameter is to be set. The CPE
     //MUST treat string-valued Parameter values as casesensitive.
+    #[serde(rename = "Value")]
     value: Option<AnySimpleType>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ParameterList {
+    #[serde(rename = "ParameterValueStruct")]
+    parameter_struct: Vec<ParameterValueStruct>,
+
+    #[serde(rename = "@arrayType")]
+    nb_of_parameter: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct Inform {
-    #[serde(rename = "DeviceID")]
+    #[serde(rename = "DeviceId")]
     device_id: DeviceIDStruct,
 
     #[serde(rename = "Event")]
-    event: Vec<Option<EventStruct>>,
+    event: EventList,
 
     #[serde(rename = "MaxEnvelopes")]
     max_envelopes: u32,
 
     #[serde(rename = "CurrentTime")]
-    current_time: u32,
+    current_time: String,
 
     #[serde(rename = "RetryCount")]
     retry_count: u32,
 
     #[serde(rename = "ParameterList")]
-    parameter_list: Option<Vec<Option<ParameterValueStruct>>>,
-}
-
-pub trait HandleCwmpMessage {
-    fn parse(xml: &str) -> Self;
-}
-
-impl HandleCwmpMessage for Inform {
-    fn parse(xml: &str) -> Self {
-        let mut reader = Reader::from_str(xml);
-        let mut buf = Vec::new();
-        reader.config_mut().trim_text(true);
-        loop {
-            // NOTE: this is the generic case when we don't know about the input BufRead.
-            // when the input is a &str or a &[u8], we don't actually need to use another
-            // buffer, we could directly call `reader.read_event()`
-            match reader.read_event_into(&mut buf) {
-                Err(e) => panic!("Error at position {}: {:?}", reader.error_position(), e),
-                // exits the loop when reaching end of file
-                Ok(Event::Eof) => break,
-
-                Ok(Event::Start(e)) => match e.name().as_ref() {
-                    b"soap:Envelope" => {
-                        trace!("Soap envelope value {:?}", e.attributes());
-                    }
-                    _ => {
-                        // trace!(
-                        //     "attributes values: {:?}",
-                        //     e.attributes().map(|a| a.unwrap().value).collect::<Vec<_>>()
-                        // );
-                        trace!("Test soap message {:?}", e);
-                    }
-                },
-                Ok(Event::Text(_e)) => (),
-
-                // There are several other `Event`s we do not consider here
-                _ => (),
-            }
-            // if we don't keep a borrow elsewhere, we can clear the buffer to keep memory usage low
-            buf.clear();
-        }
-        Inform::default()
-    }
+    parameter_list: Vec<ParameterList>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -195,12 +196,22 @@ fn spawn_log() {
     }
 }
 
+pub trait HandleCwmpMessage {
+    fn parse(xml: &str) -> Self;
+}
+
+// impl HandleCwmpMessage for Inform {
+//     fn parse(xml: &str) -> Self {
+//         Form
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn test_deserialize_soap_xml() {
-        spawn_log();
+        // spawn_log();
         let xml = r#"
                                     <soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/"
                                                        xmlns:soap-enc="http://schemas.xmlsoap.org/soap/encoding/"
@@ -221,7 +232,7 @@ mod tests {
                                           <Event soap-enc:arrayType="cwmp:EventStruct[1]">
                                             <EventStruct>
                                               <EventCode>0 BOOTSTRAP</EventCode>
-                                              <CommandKey></CommandKey>
+                                              <CommandKey>Darwin command</CommandKey>
                                             </EventStruct>
                                           </Event>
                                           <MaxEnvelopes>1</MaxEnvelopes>
