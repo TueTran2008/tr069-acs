@@ -9,6 +9,7 @@ mod cwmp_msg;
 mod soap_xml;
 mod startup;
 mod telemetry;
+// mod tower_test;
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -25,14 +26,25 @@ async fn launch_server(component: fn() -> Element) {
         dioxus::cli_config::server_ip().unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
     let port = dioxus::cli_config::server_port().unwrap_or(8081);
     let server_addr = SocketAddr::new(ip, port);
-    tracing::info!("{server_addr}");
+
+    let cwmp_port = dioxus::cli_config::server_port().unwrap_or(7777);
+    let cwmp_server_addr = SocketAddr::new(ip, cwmp_port);
+    tracing::info!("WebUI address {server_addr} - CWMP handler address {cwmp_server_addr}");
 
     //Build a custom router
 
     let router = axum::Router::new()
         .serve_dioxus_application(ServeConfigBuilder::new(), App)
         .into_make_service();
+
     let listener = tokio::net::TcpListener::bind(server_addr).await.unwrap();
+    let cwmp_listener = tokio::net::TcpListener::bind(cwmp_server_addr)
+        .await
+        .unwrap();
+
+    tokio::spawn(async move {
+        startup::run(cwmp_listener).await;
+    });
     axum::serve(listener, router).await.unwrap();
     // axum::serve(server_addr, router).await.unwrap();
 

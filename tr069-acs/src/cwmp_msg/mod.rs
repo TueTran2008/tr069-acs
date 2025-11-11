@@ -4,13 +4,35 @@ use crate::telemetry::{get_subscriber, init_subscriber};
 use quick_xml::de::*;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use tracing::{level_filters::LevelFilter, trace};
 
 #[derive(Debug)]
-pub enum CwmpMsg {
-    InformMsg(Inform),
+pub enum CpeRPC {
+    Inform,
+    GetRPCMethodsResponse,
+    SetParameterValuesResponse,
+    GetParameterValuesResponse,
+    GetParameterNamesResponse,
+    SetParameterAttributesResponse,
+    GetParameterAttributesResponse,
+    AddObjectResponse,
+    DeleteObjectResponse,
+    RebootResponse,
+    DownloadResponse,
+    ScheduleDownloadResponse,
+    UploadResponse,
+    FactoryResetResponse,
+    TransferComplete,
+    AutonomousTransferComplete,
+    RequestDownload,
+    DUStateChangeComplete,
+    GetQueuedTransfersResponse,
+    SetVouchersResponse,
+    GetOptionsResponse,
+    ScheduleInformResponse,
+    GetAllQueuedEventsResponse,
 }
 
 #[derive(Debug, Deserialize)]
@@ -151,7 +173,28 @@ struct Header {
 #[derive(Deserialize, Debug)]
 enum CWMPMsg {
     Inform(Inform),
+    GetRPCMethodsResponse,
+    SetParameterValuesResponse,
     GetParameterValuesResponse,
+    GetParameterNamesResponse,
+    SetParameterAttributesResponse,
+    GetParameterAttributesResponse,
+    AddObjectResponse,
+    DeleteObjectResponse,
+    RebootResponse,
+    DownloadResponse,
+    ScheduleDownloadResponse,
+    UploadResponse,
+    FactoryResetResponse,
+    TransferComplete,
+    AutonomousTransferComplete,
+    RequestDownload,
+    DUStateChangeComplete,
+    GetQueuedTransfersResponse,
+    SetVouchersResponse,
+    GetOptionsResponse,
+    ScheduleInformResponse,
+    GetAllQueuedEventsResponse,
 }
 
 #[derive(Deserialize, Debug)]
@@ -162,7 +205,7 @@ struct Body {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename = "Envelope")]
-struct Envelope {
+pub struct Envelope {
     #[serde(rename = "@xmlns:cwmp")]
     cwmp: Option<String>,
 
@@ -183,6 +226,10 @@ struct Envelope {
 
     #[serde(rename = "Body")]
     body: Body,
+}
+
+impl Envelope {
+    pub fn get_rpc_type(&self) {}
 }
 
 static TRACING: OnceLock<()> = OnceLock::new();
