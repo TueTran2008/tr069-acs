@@ -1,7 +1,9 @@
-use crate::cwmp_msg::{self};
-use axum::Router;
+use crate::cwmp_msg::{self, CWMPMsg, Envelope, InformResponse};
+use axum::{response, Router};
 use axum_xml_up::Xml;
 use tokio::net::TcpListener;
+// use axum::response::S
+use yaserde;
 
 #[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
@@ -20,6 +22,16 @@ pub async fn run(listener: TcpListener) {
 }
 
 #[axum::debug_handler]
-pub async fn xml_request_handler(Xml(payload): Xml<cwmp_msg::Envelope>) {
-    tracing::info!("Get xml body: {:?}", payload);
+pub async fn xml_request_handler(envelope: String) {
+    tracing::info!("Get xml body: {:?}", envelope);
+    // match envelope.get_rpc_type() {
+    //     _ => {
+    //         tracing::info!("Got message type");
+    //     }
+    // }
+    // let response = InformResponse::default();
+    // let envelope_response = Envelope::new(CWMPMsg::InformResponse(response));
+    let xml_payload: Envelope = yaserde::de::from_str(&envelope).unwrap();
+    tracing::info!("response xml {:?}", xml_payload);
+    // Xml(envelope_response)
 }
