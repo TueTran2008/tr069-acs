@@ -1,4 +1,4 @@
-use crate::cwmp_msg::{self};
+use crate::cwmp_msg::{self, CWMPMsg, Envelope, InformResponse};
 use axum::Router;
 use axum_xml_up::Xml;
 use tokio::net::TcpListener;
@@ -20,6 +20,16 @@ pub async fn run(listener: TcpListener) {
 }
 
 #[axum::debug_handler]
-pub async fn xml_request_handler(Xml(payload): Xml<cwmp_msg::Envelope>) {
-    tracing::info!("Get xml body: {:?}", payload);
+pub async fn xml_request_handler(Xml(payload): Xml<cwmp_msg::Envelope>) -> String {
+    tracing::info!("Get xml body: {:#?}", payload);
+    let msg_body = InformResponse { max_envelopes: 1 };
+    let res = Envelope::new(CWMPMsg::InformResponse(msg_body));
+    let xml = String::from_utf8(res.create_xml().unwrap()).unwrap();
+
+    tracing::info!("response {xml}");
+    xml
+    //let extr_xml = Xml(xml);
+    //tracing::info!("response message{:#?}", &extr_xml);
+    //extr_xml
+    // let xml_payload: Envelope = quick_xml::
 }

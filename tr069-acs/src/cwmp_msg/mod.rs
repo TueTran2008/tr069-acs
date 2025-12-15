@@ -1,73 +1,126 @@
 pub mod session;
 
 use crate::telemetry::{get_subscriber, init_subscriber};
-use quick_xml::de::*;
-use quick_xml::events::Event;
-use quick_xml::reader::Reader;
+use axum::extract::{FromRequest, Request};
+use axum::http::{HeaderValue, StatusCode};
+use axum::response::{IntoResponse, Response};
+use axum::{async_trait, http};
+use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+//use quick_xml::name::{Namespace, NamespaceResolver, ResolveResult};
+use quick_xml::{de::*, NsReader, Writer};
 use serde::{Deserialize, Serialize};
-use std::sync::OnceLock;
-use tracing::{level_filters::LevelFilter, trace};
+//use std::convert::Infallible;
+use std::io::{Cursor, Write};
+use std::panic;
+//use std::sync::OnceLock;
+//use tracing::{level_filters::LevelFilter, trace};
 
-#[derive(Debug)]
-pub enum CpeRPC {
-    Inform,
-    GetRPCMethodsResponse,
-    SetParameterValuesResponse,
-    GetParameterValuesResponse,
-    GetParameterNamesResponse,
-    SetParameterAttributesResponse,
-    GetParameterAttributesResponse,
-    AddObjectResponse,
-    DeleteObjectResponse,
-    RebootResponse,
-    DownloadResponse,
-    ScheduleDownloadResponse,
-    UploadResponse,
-    FactoryResetResponse,
-    TransferComplete,
-    AutonomousTransferComplete,
-    RequestDownload,
-    DUStateChangeComplete,
-    GetQueuedTransfersResponse,
-    SetVouchersResponse,
-    GetOptionsResponse,
-    ScheduleInformResponse,
-    GetAllQueuedEventsResponse,
+//pub const ENC_NP: &str = "soap-enc";
+//pub const ENV_NP: &str = "soap-env";
+//pub const CWMP_NP: &str = "cwmp";
+//
+//pub const SOAP_ENV_NP: &str = r#"http://schemas.xmlsoap.org/soap/envelope/"#;
+pub const SOAP_ENC_NP: &str = r#"http://schemas.xmlsoap.org/soap/encoding/"#;
+pub const SOAP_CWMP_NP: &str = r#"urn:dslforum-org:cwmp-1-0"#;
+pub const SOAP_XSD_NP: &str = r#"http://www.w3.org/2001/XMLSchema"#;
+pub const SOAP_XSI_NP: &str = r#"http://www.w3.org/2001/XMLSchema-instance"#;
+
+/// Define methods use to build soap message
+trait RpcWrite<'a, W> {
+    fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W>;
 }
 
-#[derive(Debug, Deserialize)]
-enum EventCode {
-    Event0BootStrap,
-    Event1Boot,
-    Event2Periodic,
-    Event3Schedule,
-    Event4ValueChange,
-    Event5Kicked,
-    Event6ConnectionRequest,
-    Event7TransferComplete,
-    Event8DiagnosticComplete,
-    Event9RequestDownload,
-    Event10AutonomousTransferComplete,
-    Event11DUStateChangeComplete,
-    Event12AutonomousDUStateChangeComplete,
-    Event13Wakeup,
-    Event14Heartbeat,
-    EventMReboot,
-    EventMScheduleInform,
-    EventMDownload,
-    EventMScheduleDownload,
-    EventMUpload,
-    EventMChangeDUState,
-    EventMVendorMethod,
-    EventMVendorEvent,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u16)]
+pub enum Tr069FaultCode {
+    MethodNotSupported = 9000,
+    RequestDenied = 9001,
+    InternalError = 9002,
+    InvalidArguments = 9003,
+    ResourcesExceeded = 9004,
+    InvalidParameterName = 9005,
+    InvalidParameterType = 9006,
+    InvalidParameterValue = 9007,
+    NonWritableParameter = 9008,
+    NotificationRequestRejected = 9009,
+    DownloadFailure = 9010,
+    UploadFailure = 9011,
+    FileTransferAuthFailure = 9012,
+    UnsupportedProtocol = 9013,
+
+    /// Any code not defined by TR-069
+    Unknown(u16),
 }
 
-#[derive(Debug, Deserialize)]
+impl IntoResponse for Tr069FaultCode {
+    fn into_response(self) -> Response {
+        let body = match self {
+            Tr069FaultCode::InternalError => "Internal Error",
+            _ => "Error that hasn't been define",
+        };
+        (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
+    }
+}
+//#[derive(Debug)]
+//pub enum CpeRPC {
+//    Inform,
+//    GetRPCMethodsResponse,
+//    SetParameterValuesResponse,
+//    GetParameterValuesResponse,
+//    GetParameterNamesResponse,
+//    SetParameterAttributesResponse,
+//    GetParameterAttributesResponse,
+//    AddObjectResponse,
+//    DeleteObjectResponse,
+//    RebootResponse,
+//    DownloadResponse,
+//    ScheduleDownloadResponse,
+//    UploadResponse,
+//    FactoryResetResponse,
+//    TransferComplete,
+//    AutonomousTransferComplete,
+//    RequestDownload,
+//    DUStateChangeComplete,
+//    GetQueuedTransfersResponse,
+//    SetVouchersResponse,
+//    GetOptionsResponse,
+//    ScheduleInformResponse,
+//    GetAllQueuedEventsResponse,
+//}
+
+//#[derive(Debug, Deserialize)]
+//enum EventCode {
+//    Event0BootStrap,
+//    Event1Boot,
+//    Event2Periodic,
+//    Event3Schedule,
+//    Event4ValueChange,
+//    Event5Kicked,
+//    Event6ConnectionRequest,
+//    Event7TransferComplete,
+//    Event8DiagnosticComplete,
+//    Event9RequestDownload,
+//    Event10AutonomousTransferComplete,
+//    Event11DUStateChangeComplete,
+//    Event12AutonomousDUStateChangeComplete,
+//    Event13Wakeup,
+//    Event14Heartbeat,
+//    EventMReboot,
+//    EventMScheduleInform,
+//    EventMDownload,
+//    EventMScheduleDownload,
+//    EventMUpload,
+//    EventMChangeDUState,
+//    EventMVendorMethod,
+//    EventMVendorEvent,
+//}
+
+#[derive(Debug, Deserialize, Serialize)]
 struct CommandKey {
     value: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct EventStruct {
     // #[serde(rename = "@arrayType")]
     // nb_of_event: Option<String>,
@@ -77,7 +130,7 @@ struct EventStruct {
     command_key: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Serialize)]
 struct EventList {
     #[serde(rename = "@arrayType")]
     nb_of_event: Option<String>,
@@ -86,7 +139,7 @@ struct EventList {
     event_struct: Vec<EventStruct>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 struct DeviceIDStruct {
     #[serde(rename = "Manufacturer")]
     manufacturer: Option<String>,
@@ -101,17 +154,17 @@ struct DeviceIDStruct {
     serial_number: Option<String>,
 }
 
-//The value of an element defined to be of type “anySimpleType” MAY be of any simple data type,
-// including (but not limited to) any of the other types listed in this table.
-// Following the SOAP specification [12], elements specified as being of type “anySimpleType” MUST
-// include a type attribute to indicate the actual type of the element. For example:
-// <ParameterValueStruct>
-//  <Name>Device.DeviceInfo.ProvisioningCode</Name>
-//  <Value xsi:type="xsd:string">code12345</Value>
-// </ParameterValueStruct>
-// The namespaces xsi and xsd used above are as defined in [12].
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct AnySimpleType {
+    //The value of an element defined to be of type “anySimpleType” MAY be of any simple data type,
+    // including (but not limited to) any of the other types listed in this table.
+    // Following the SOAP specification [12], elements specified as being of type “anySimpleType” MUST
+    // include a type attribute to indicate the actual type of the element. For example:
+    // <ParameterValueStruct>
+    //  <Name>Device.DeviceInfo.ProvisioningCode</Name>
+    //  <Value xsi:type="xsd:string">code12345</Value>
+    // </ParameterValueStruct>
+    // The namespaces xsi and xsd used above are as defined in [12].
     #[serde(rename = "@type")]
     xsi_type: Option<String>,
 
@@ -119,7 +172,7 @@ struct AnySimpleType {
     value: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ParameterValueStruct {
     #[serde(rename = "Name")]
     name: Option<String>,
@@ -129,7 +182,7 @@ struct ParameterValueStruct {
     value: Option<AnySimpleType>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ParameterList {
     #[serde(rename = "ParameterValueStruct")]
     parameter_struct: Vec<ParameterValueStruct>,
@@ -138,8 +191,8 @@ struct ParameterList {
     nb_of_parameter: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
-struct Inform {
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub(crate) struct Inform {
     #[serde(rename = "DeviceId")]
     device_id: DeviceIDStruct,
 
@@ -159,20 +212,197 @@ struct Inform {
     parameter_list: Vec<ParameterList>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct ID {
     #[serde(rename = "@mustUnderstand")]
     must_understand: Option<String>,
+
+    #[serde(rename = "$text")]
+    value: Option<String>,
 }
-#[derive(Deserialize, Debug)]
+
+#[derive(Deserialize, Debug, Serialize)]
 struct Header {
     #[serde(rename = "ID")]
     id: ID,
 }
 
-#[derive(Deserialize, Debug)]
-enum CWMPMsg {
+//impl Header {
+//    pub fn create_xml(&self) -> Option<Vec<u8>> {
+//        let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
+//
+//        if let Some(ref text) = self.id.value {
+//            xml_writer
+//                .create_element("soap-env:Header")
+//                .write_empty()
+//                .unwrap();
+//
+//            xml_writer
+//                .create_element("cwmp:ID")
+//                .with_attribute((r#"soap-env:mustUnderstand="1""#, text.as_str()));
+//            Some(xml_writer.into_inner().into_inner())
+//        } else {
+//            None
+//        }
+//    }
+//}
+
+impl Default for Header {
+    fn default() -> Self {
+        let default_id = ID {
+            must_understand: Some(String::from("1")),
+            value: Some(String::from("magic")),
+        };
+        Header { id: default_id }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InformResponse {
+    #[serde(rename = "MaxEnvelopes")]
+    pub max_envelopes: u32,
+}
+
+impl Default for InformResponse {
+    fn default() -> Self {
+        Self { max_envelopes: 1 }
+    }
+}
+
+impl<'a, W: std::io::Write> RpcWrite<'a, W> for InformResponse
+// where W: Write
+{
+    fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W> {
+        // let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
+
+        // --- <cwmp:InformResponse>
+        let inform_res = BytesStart::new("cwmp:InformResponse");
+        xml_writer.write_event(Event::Start(inform_res)).unwrap();
+
+        // --- MaxEnvelopes
+        let max_envelopes = BytesStart::new("MaxEnvelopes");
+        xml_writer.write_event(Event::Start(max_envelopes)).unwrap();
+        xml_writer
+            .write_event(Event::Text(BytesText::new("1")))
+            .unwrap();
+
+        // -- Close MaxEnvelopes
+
+        xml_writer
+            .write_event(Event::End(BytesEnd::new("MaxEnvelopes")))
+            .unwrap();
+        xml_writer
+            .write_event(Event::End(BytesEnd::new("cwmp:InformResponse")))
+            .unwrap();
+
+        // Output - Generate Output
+        // xml_writer.into_inner().into_inner()
+        xml_writer
+    }
+}
+
+impl Envelope {
+    pub fn create_xml(&self) -> Option<Vec<u8>> {
+        let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
+
+        // --- <soap-env:Envelope>
+        // xml_writer.write_event(Evet::Start(BytesStart::new("soap-env:Envelope")));
+
+        //let content = r#"xml version ="1.0"\nencoding="UTF-8""#;
+        xml_writer
+            .write_event(Event::Decl(BytesDecl::new(
+                r#"1.0"#,
+                Some(r#"UTF-8"#),
+                None,
+            )))
+            .expect("Failed to write XML declaration");
+        xml_writer
+            .create_element("soap-env:Envelope")
+            .with_attributes(vec![
+                (
+                    "xmlns:soap-enc",
+                    "http://schemas.xmlsoap.org/soap/encoding/",
+                ),
+                (
+                    "xmlns:soap-env",
+                    "http://schemas.xmlsoap.org/soap/envelope/",
+                ),
+                ("xmlns:xsd", "http://www.w3.org/2001/XMLSchema"),
+                ("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance"),
+                ("xmlns:cwmp", "urn:dslforum-org:cwmp-1-0"),
+            ])
+            .write_inner_content(|xml| {
+                if let Some(ref text) = self.header.id.value {
+                    xml.create_element("soap-env:Header").write_empty().unwrap();
+
+                    xml.create_element("cwmp:ID")
+                        .with_attribute((r#"soap-env:mustUnderstand="1""#, text.as_str()));
+                    // Some(xml_writer.into_inner().into_inner())
+                    match &self.body.msg_type {
+                        CWMPMsg::InformResponse(msg) => {
+                            msg.build_message(xml);
+                        }
+                        _ => panic!("Has implement message build for this type"),
+                    }
+                    Ok(())
+                } else {
+                    // None
+                    // Err(std)
+                    panic!("Failed to construct inner content of SOAP Message");
+                }
+            })
+            // .write_text_content(BytesText::new(""))
+            // .write_empty()
+            .unwrap();
+
+        Some(xml_writer.into_inner().into_inner())
+    }
+}
+
+#[async_trait]
+impl<S> FromRequest<S> for Envelope
+where
+    S: Send + Sync,
+{
+    type Rejection = Tr069FaultCode;
+
+    //fn from_request<'life0,'async_trait>(req:Request,state: &'life0 S) ->  ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result<Self,Self::Rejection> > + ::core::marker::Send+'async_trait> >where 'life0:'async_trait,Self:'async_trait {
+    //    let body = String::from_request(req, state);
+    //
+    //}
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let body = String::from_request(req, state).await.unwrap();
+        let envelope: Result<Envelope, DeError> = quick_xml::de::from_str(&body);
+        match envelope {
+            Ok(soap_msg) => Ok(soap_msg),
+            Err(_) => {
+                tracing::error!("Cannot deserialize the in-coming message to xml");
+                Err(Tr069FaultCode::InternalError)
+            }
+        }
+    }
+}
+
+impl IntoResponse for Envelope {
+    fn into_response(self) -> Response {
+        (
+            [(
+                http::header::CONTENT_TYPE,
+                HeaderValue::from_static(r#"text/xml; charset="utf-8""#),
+            )],
+            String::from_utf8(self.create_xml().unwrap()).unwrap(),
+        )
+            .into_response()
+    }
+}
+
+//fn xml_content_type<B> {
+//
+//}
+#[derive(Deserialize, Debug, Serialize)]
+pub enum CWMPMsg {
     Inform(Inform),
+    InformResponse(InformResponse),
     GetRPCMethodsResponse,
     SetParameterValuesResponse,
     GetParameterValuesResponse,
@@ -197,13 +427,13 @@ enum CWMPMsg {
     GetAllQueuedEventsResponse,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct Body {
     #[serde(rename = "$value")]
     msg_type: CWMPMsg,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 #[serde(rename = "Envelope")]
 pub struct Envelope {
     #[serde(rename = "@xmlns:cwmp")]
@@ -229,20 +459,64 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    pub fn get_rpc_type(&self) {}
-}
-
-static TRACING: OnceLock<()> = OnceLock::new();
-
-fn spawn_log() {
-    if TRACING.get().is_none() {
-        let _tracing = TRACING.get_or_init(|| {
-            let test_sub = get_subscriber("tr069-server-test".into(), LevelFilter::TRACE.into());
-            init_subscriber(test_sub);
-        });
+    pub fn new(msg_body: CWMPMsg) -> Self {
+        Self {
+            cwmp: Some(String::from(SOAP_CWMP_NP)),
+            soap_enc: Some(String::from(SOAP_ENC_NP)),
+            xsi: Some(String::from(SOAP_ENC_NP)),
+            xsd: Some(String::from(SOAP_XSD_NP)),
+            soap_env: Some(String::from(SOAP_XSI_NP)),
+            header: Header::default(),
+            body: Body { msg_type: msg_body }, // attrs: HashMap::new(),
+        }
     }
 }
 
+//impl Envelope {
+//    pub fn get_rpc_type(&self) {}
+//}
+
+// fn parse_xml(xml: &str) {
+//     use quick_xml::reader::NsReader;
+//     let mut reader = NsReader::from_reader(xml.as_bytes());
+//     // let mut buf = Vec::new();
+//     let mut txt = Vec::new();
+//
+//     // let mut envelope = Envelope {
+//     //     xsi: None,
+//     //     xsd: None,
+//     //     cwmp: None,
+//     //     body: None,
+//     //     header: None,
+//     //     soap_enc: None,
+//     //     soap_env: None
+//     // }
+//     reader.config_mut().trim_text(true);
+//     // reader.read_resolved_event().unwrap();
+//     // reader.read_resolved_event().unwrap();
+//
+//     // let ns = reader.prefixes().collect::<Vec<_>>();
+//     // tracing::info!("namespace: {:#?}", ns);
+//     loop {
+//         match reader.read_resolved_event().unwrap() {
+//             (ns, Event::Start(e)) => {
+//                 // tracing::info!("namespace: {:#?} , debug {:#?}", ns, e);
+//                 if let ResolveResult::Bound(namespace) = ns {
+//                     // let prefix = reader.prefixes();
+//
+//                     tracing::info!("Found namespace prefix {:#?} - {:#?}", namespace., e);
+//                 }
+//             }
+//             (_, Event::Start(_)) => unreachable!(),
+//             (_, Event::Text(e)) => {
+//                 txt.push(e.decode().unwrap().into_owned());
+//                 tracing::info!("log text {:#?}", txt);
+//             }
+//             (_, Event::Eof) => break,
+//             _ => (),
+//         }
+//     }
+// }
 pub trait HandleCwmpMessage {
     fn parse(xml: &str) -> Self;
 }
@@ -256,9 +530,21 @@ pub trait HandleCwmpMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    static TRACING: OnceLock<()> = OnceLock::new();
+
+    fn spawn_log() {
+        if TRACING.get().is_none() {
+            let _tracing = TRACING.get_or_init(|| {
+                let test_sub = get_subscriber("tr069-server-test".into(), LevelFilter::INFO.into());
+                init_subscriber(test_sub);
+            });
+        }
+    }
+
     #[test]
     fn test_deserialize_soap_xml() {
-        // spawn_log();
+        spawn_log();
+        // let xml = "<?xml version="1.0" encoding="UTF-8"?>\x0a<soap-env:Envelope xmlns:soap-enc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cwmp="urn:dslforum-org:cwmp-1-0"><soap-env:Header><cwmp:ID soap-env:mustUnderstand="1">rr8q3um5</cwmp:ID></soap-env:Header><soap-env:Body><cwmp:InformResponse><MaxEnvelopes>1</MaxEnvelopes></cwmp:InformResponse></soap-env:Body></soap-env:Envelope>";
         let xml = r#"
                                     <soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/"
                                                        xmlns:soap-enc="http://schemas.xmlsoap.org/soap/encoding/"
@@ -299,8 +585,14 @@ mod tests {
                                       </soap-env:Body>
                                     </soap-env:Envelope>
         "#;
-
-        let soap_env: Envelope = quick_xml::de::from_str(xml).unwrap();
-        trace!("soap evelope test {:?}", soap_env);
+        let msg_body = InformResponse { max_envelopes: 1 };
+        let res = Envelope::new(CWMPMsg::InformResponse(msg_body));
+        let xml = res.create_xml().unwrap();
+        // let res = Envelope::build_message();
+        // let dbg = String::from_utf8(res).unwrap();
+        // tracing::info!("{}", dbg);
+        // parse_xml(xml);
+        // let soap_env: Envelope = quick_xml::de::from_str(xml).unwrap();
+        tracing::info!("soap evelope test {}", String::from_utf8(xml).unwrap());
     }
 }
