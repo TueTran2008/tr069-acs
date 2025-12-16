@@ -20,10 +20,14 @@ pub async fn run(listener: TcpListener) {
 }
 
 #[axum::debug_handler]
-pub async fn xml_request_handler(Xml(payload): Xml<cwmp_msg::Envelope>) -> String {
+pub async fn xml_request_handler(payload: Envelope) -> String {
     tracing::info!("Get xml body: {:#?}", payload);
+
+    let recv_msg_id = payload.get_msg_id();
     let msg_body = InformResponse { max_envelopes: 1 };
-    let res = Envelope::new(CWMPMsg::InformResponse(msg_body));
+    let res = Envelope::new(recv_msg_id, cwmp_msg::CWMPMsg::InformResponse(msg_body));
+    //res.header.set_msg_id(recv_msg_id);
+
     let xml = String::from_utf8(res.create_xml().unwrap()).unwrap();
 
     tracing::info!("response {xml}");

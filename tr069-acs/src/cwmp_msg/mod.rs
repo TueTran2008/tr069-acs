@@ -12,8 +12,6 @@ use serde::{Deserialize, Serialize};
 //use std::convert::Infallible;
 use std::io::{Cursor, Write};
 use std::panic;
-//use std::sync::OnceLock;
-//use tracing::{level_filters::LevelFilter, trace};
 
 //pub const ENC_NP: &str = "soap-enc";
 //pub const ENV_NP: &str = "soap-env";
@@ -55,7 +53,7 @@ pub enum Tr069FaultCode {
 impl IntoResponse for Tr069FaultCode {
     fn into_response(self) -> Response {
         let body = match self {
-            Tr069FaultCode::InternalError => "Internal Error",
+            Tr069FaultCode::InternalError => "Internal Error hehehe",
             _ => "Error that hasn't been define",
         };
         (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
@@ -227,25 +225,15 @@ struct Header {
     id: ID,
 }
 
-//impl Header {
-//    pub fn create_xml(&self) -> Option<Vec<u8>> {
-//        let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
-//
-//        if let Some(ref text) = self.id.value {
-//            xml_writer
-//                .create_element("soap-env:Header")
-//                .write_empty()
-//                .unwrap();
-//
-//            xml_writer
-//                .create_element("cwmp:ID")
-//                .with_attribute((r#"soap-env:mustUnderstand="1""#, text.as_str()));
-//            Some(xml_writer.into_inner().into_inner())
-//        } else {
-//            None
-//        }
-//    }
-//}
+impl Header {
+    pub fn new(msg_id: &str) -> Self {
+        let default_id = ID {
+            must_understand: Some(String::from("1")),
+            value: Some(String::from(msg_id)),
+        };
+        Header { id: default_id }
+    }
+}
 
 impl Default for Header {
     fn default() -> Self {
@@ -269,9 +257,7 @@ impl Default for InformResponse {
     }
 }
 
-impl<'a, W: std::io::Write> RpcWrite<'a, W> for InformResponse
-// where W: Write
-{
+impl<'a, W: std::io::Write> RpcWrite<'a, W> for InformResponse {
     fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W> {
         // let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
 
@@ -302,13 +288,21 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for InformResponse
 }
 
 impl Envelope {
+    pub fn get_msg_id(&self) -> &str {
+        if let Some(ref msg_id) = self.header.id.value {
+            msg_id
+        } else {
+            tracing::warn!("This message doesn't have cwmp ID");
+            ""
+        }
+    }
+    pub fn set_msg_id(&mut self, msg_id: &str) {
+        self.header.id.value = Some(String::from(msg_id));
+    }
+
     pub fn create_xml(&self) -> Option<Vec<u8>> {
         let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
 
-        // --- <soap-env:Envelope>
-        // xml_writer.write_event(Evet::Start(BytesStart::new("soap-env:Envelope")));
-
-        //let content = r#"xml version ="1.0"\nencoding="UTF-8""#;
         xml_writer
             .write_event(Event::Decl(BytesDecl::new(
                 r#"1.0"#,
@@ -333,11 +327,18 @@ impl Envelope {
             ])
             .write_inner_content(|xml| {
                 if let Some(ref text) = self.header.id.value {
-                    xml.create_element("soap-env:Header").write_empty().unwrap();
+                    let header_random_str = text.as_str();
+                    //let must_understand = "soap-env:mustUnderstand=\"1\"";
+                    let _ = xml
+                        .create_element("soap-env:Header")
+                        .write_inner_content(|xml| {
+                            xml.create_element("cwmp:ID")
+                                .with_attribute(("soap-env:mustUnderstand", "1"))
+                                .write_text_content(BytesText::new(header_random_str))
+                                .unwrap();
+                            Ok(())
+                        });
 
-                    xml.create_element("cwmp:ID")
-                        .with_attribute((r#"soap-env:mustUnderstand="1""#, text.as_str()));
-                    // Some(xml_writer.into_inner().into_inner())
                     match &self.body.msg_type {
                         CWMPMsg::InformResponse(msg) => {
                             msg.build_message(xml);
@@ -371,6 +372,7 @@ where
     //
     //}
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        // Todo: Check if body is empty ->
         let body = String::from_request(req, state).await.unwrap();
         let envelope: Result<Envelope, DeError> = quick_xml::de::from_str(&body);
         match envelope {
@@ -388,7 +390,7 @@ impl IntoResponse for Envelope {
         (
             [(
                 http::header::CONTENT_TYPE,
-                HeaderValue::from_static(r#"text/xml; charset="utf-8""#),
+                HeaderValue::from_static(r#"text/xml; charset=\"utf-8\""#),
             )],
             String::from_utf8(self.create_xml().unwrap()).unwrap(),
         )
@@ -459,14 +461,14 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    pub fn new(msg_body: CWMPMsg) -> Self {
+    pub fn new(msg_id: &str, msg_body: CWMPMsg) -> Self {
         Self {
             cwmp: Some(String::from(SOAP_CWMP_NP)),
             soap_enc: Some(String::from(SOAP_ENC_NP)),
             xsi: Some(String::from(SOAP_ENC_NP)),
             xsd: Some(String::from(SOAP_XSD_NP)),
             soap_env: Some(String::from(SOAP_XSI_NP)),
-            header: Header::default(),
+            header: Header::new(msg_id),
             body: Body { msg_type: msg_body }, // attrs: HashMap::new(),
         }
     }
@@ -530,6 +532,9 @@ pub trait HandleCwmpMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+    use tracing::{level_filters::LevelFilter, trace};
+
     static TRACING: OnceLock<()> = OnceLock::new();
 
     fn spawn_log() {
@@ -586,7 +591,7 @@ mod tests {
                                     </soap-env:Envelope>
         "#;
         let msg_body = InformResponse { max_envelopes: 1 };
-        let res = Envelope::new(CWMPMsg::InformResponse(msg_body));
+        let res = Envelope::new("dummy", CWMPMsg::InformResponse(msg_body));
         let xml = res.create_xml().unwrap();
         // let res = Envelope::build_message();
         // let dbg = String::from_utf8(res).unwrap();
