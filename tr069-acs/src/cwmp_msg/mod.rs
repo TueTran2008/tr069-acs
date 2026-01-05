@@ -1,6 +1,7 @@
+pub mod cwmp_get;
 pub mod session;
 
-use crate::telemetry::{get_subscriber, init_subscriber};
+//use crate::telemetry::{get_subscriber, init_subscriber};
 use axum::extract::{FromRequest, Request};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -13,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use std::io::{Cursor, Write};
 use std::panic;
 
+use crate::cwmp_msg::cwmp_get::GetParamterNames;
+
 //pub const ENC_NP: &str = "soap-enc";
 //pub const ENV_NP: &str = "soap-env";
 //pub const CWMP_NP: &str = "cwmp";
@@ -24,7 +27,7 @@ pub const SOAP_XSD_NP: &str = r#"http://www.w3.org/2001/XMLSchema"#;
 pub const SOAP_XSI_NP: &str = r#"http://www.w3.org/2001/XMLSchema-instance"#;
 
 /// Define methods use to build soap message
-trait RpcWrite<'a, W> {
+pub(crate) trait RpcWrite<'a, W> {
     fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W>;
 }
 
@@ -239,7 +242,7 @@ impl Default for Header {
     fn default() -> Self {
         let default_id = ID {
             must_understand: Some(String::from("1")),
-            value: Some(String::from("magic")),
+            value: Some(String::from("magic_number")),
         };
         Header { id: default_id }
     }
@@ -288,16 +291,31 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for InformResponse {
 }
 
 impl Envelope {
-    pub fn get_msg_id(&self) -> &str {
-        if let Some(ref msg_id) = self.header.id.value {
-            msg_id
-        } else {
-            tracing::warn!("This message doesn't have cwmp ID");
-            ""
-        }
+    pub fn get_msg_id(&self) -> Option<&String> {
+        //if let Some(ref msg_id) = self.header.id.value {
+        //    msg_id
+        //} else {
+        //    tracing::warn!("This message doesn't have cwmp ID");
+        //    ""
+        //}
+        //if let Some(ref msg_id) = self.header.and_then(Vgc)
+        let msg_id = self
+            .header
+            .as_ref()
+            .and_then(|msg_id| msg_id.id.value.as_ref());
+        msg_id
     }
-    pub fn set_msg_id(&mut self, msg_id: &str) {
-        self.header.id.value = Some(String::from(msg_id));
+
+    // Should call this after initializeing header
+    pub fn set_msg_id(&mut self, msg_id: &String) {
+        //self.header.id.value = Some(String::from(msg_id));
+        //self.header
+        //    .and_then(|header| header.id.value = Some(String::from(msg_id)));
+        if let Some(ref mut header) = self.header {
+            header.id.value = Some(String::from(msg_id));
+        } else {
+            tracing::error!("Header is empty => Cannot set the new Message ID for Header");
+        }
     }
 
     pub fn create_xml(&self) -> Option<Vec<u8>> {
@@ -326,7 +344,7 @@ impl Envelope {
                 ("xmlns:cwmp", "urn:dslforum-org:cwmp-1-0"),
             ])
             .write_inner_content(|xml| {
-                if let Some(ref text) = self.header.id.value {
+                if let Some(ref text) = self.header.as_ref().unwrap().id.value {
                     let header_random_str = text.as_str();
                     //let must_understand = "soap-env:mustUnderstand=\"1\"";
                     let _ = xml
@@ -339,7 +357,7 @@ impl Envelope {
                             Ok(())
                         });
 
-                    match &self.body.msg_type {
+                    match &self.body.as_ref().unwrap().msg_type {
                         CWMPMsg::InformResponse(msg) => {
                             msg.build_message(xml);
                         }
@@ -357,31 +375,6 @@ impl Envelope {
             .unwrap();
 
         Some(xml_writer.into_inner().into_inner())
-    }
-}
-
-#[async_trait]
-impl<S> FromRequest<S> for Envelope
-where
-    S: Send + Sync,
-{
-    type Rejection = Tr069FaultCode;
-
-    //fn from_request<'life0,'async_trait>(req:Request,state: &'life0 S) ->  ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result<Self,Self::Rejection> > + ::core::marker::Send+'async_trait> >where 'life0:'async_trait,Self:'async_trait {
-    //    let body = String::from_request(req, state);
-    //
-    //}
-    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
-        // Todo: Check if body is empty ->
-        let body = String::from_request(req, state).await.unwrap();
-        let envelope: Result<Envelope, DeError> = quick_xml::de::from_str(&body);
-        match envelope {
-            Ok(soap_msg) => Ok(soap_msg),
-            Err(_) => {
-                tracing::error!("Cannot deserialize the in-coming message to xml");
-                Err(Tr069FaultCode::InternalError)
-            }
-        }
     }
 }
 
@@ -408,6 +401,7 @@ pub enum CWMPMsg {
     GetRPCMethodsResponse,
     SetParameterValuesResponse,
     GetParameterValuesResponse,
+    GetParameterNames(GetParamterNames),
     GetParameterNamesResponse,
     SetParameterAttributesResponse,
     GetParameterAttributesResponse,
@@ -427,6 +421,7 @@ pub enum CWMPMsg {
     GetOptionsResponse,
     ScheduleInformResponse,
     GetAllQueuedEventsResponse,
+    EmptyRPC,
 }
 
 #[derive(Deserialize, Debug, Serialize)]
@@ -454,10 +449,13 @@ pub struct Envelope {
     soap_env: Option<String>,
 
     #[serde(rename = "Header")]
-    header: Header,
+    header: Option<Header>,
 
     #[serde(rename = "Body")]
-    body: Body,
+    body: Option<Body>,
+    // Empty body of the HTTP request
+    //#[serde(skip)]
+    //is_empty: bool,
 }
 
 impl Envelope {
@@ -468,8 +466,58 @@ impl Envelope {
             xsi: Some(String::from(SOAP_ENC_NP)),
             xsd: Some(String::from(SOAP_XSD_NP)),
             soap_env: Some(String::from(SOAP_XSI_NP)),
-            header: Header::new(msg_id),
-            body: Body { msg_type: msg_body }, // attrs: HashMap::new(),
+            header: Some(Header::new(msg_id)),
+            body: Some(Body { msg_type: msg_body }), // attrs: HashMap::new(),
+                                                     //is_empty: false,
+        }
+    }
+
+    pub fn new_empty() -> Self {
+        Self {
+            cwmp: None,
+            soap_enc: None,
+            xsi: None,
+            xsd: None,
+            soap_env: None,
+            header: None,
+            body: None,
+        }
+    }
+    pub fn is_empty(&self) -> bool {
+        if self.header.is_some() {
+            return false;
+        }
+
+        if self.body.is_some() {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+#[async_trait]
+impl<S> FromRequest<S> for Envelope
+where
+    S: Send + Sync,
+{
+    type Rejection = Tr069FaultCode;
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        // Todo: Check if body is empty ->
+        let body = String::from_request(req, state).await.unwrap();
+        if body.is_empty() {
+            tracing::warn!("Body is empty, maybe CWMP Client is empty");
+            Ok(Envelope::new_empty())
+        } else {
+            let envelope: Result<Envelope, DeError> = quick_xml::de::from_str(&body);
+            match envelope {
+                Ok(soap_msg) => Ok(soap_msg),
+                Err(_) => {
+                    tracing::error!("Cannot deserialize the in-coming message to xml");
+                    Err(Tr069FaultCode::InternalError)
+                }
+            }
         }
     }
 }

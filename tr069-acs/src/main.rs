@@ -7,6 +7,7 @@ use tokio::runtime::Runtime;
 //use dioxus_logger::tracing::{info, Level};
 
 mod cwmp_msg;
+mod session;
 mod soap_xml;
 mod startup;
 mod telemetry;
@@ -22,9 +23,14 @@ async fn launch_server(_component: fn() -> Element) {
 
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-    use tracing::Level;
+    use tracing::{level_filters::LevelFilter, Level};
+    //use tracing_log::log::LevelFilter;
 
-    dioxus::logger::init(Level::TRACE).unwrap();
+    use crate::telemetry::{get_subscriber, init_subscriber};
+
+    //dioxus::logger::init(Level::TRACE).unwrap();
+    let test_sub = get_subscriber("tr069-server-test".into(), LevelFilter::TRACE.into());
+    init_subscriber(test_sub);
     let ip =
         dioxus::cli_config::server_ip().unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
     let port = dioxus::cli_config::server_port().unwrap_or(8081);
