@@ -1,4 +1,5 @@
-pub mod cwmp_get;
+pub mod get_names;
+pub mod get_values;
 pub mod session;
 
 //use crate::telemetry::{get_subscriber, init_subscriber};
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{Cursor, Write};
 use std::panic;
 
-use crate::cwmp_msg::cwmp_get::GetParamterNames;
+use crate::cwmp_msg::get_names::GetParamterNames;
 
 //pub const ENC_NP: &str = "soap-enc";
 //pub const ENV_NP: &str = "soap-env";

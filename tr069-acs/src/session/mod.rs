@@ -1,5 +1,5 @@
 pub mod consts;
-use crate::cwmp_msg::{self, cwmp_get::GetParamterNames, CWMPMsg, InformResponse};
+use crate::cwmp_msg::{self, get_names::GetParamterNames, CWMPMsg, InformResponse};
 
 /*
 * Initialize a session in case there is a new inform
@@ -50,6 +50,7 @@ impl SessionCwmp {
         }
     }
 
+    // This sequence should be apply to new Device
     pub fn handle_http(&mut self, cwmp_msg: Option<CWMPMsg>) -> Option<CWMPMsg> {
         match self.state {
             // In the idle state, only start the session if it is Inform

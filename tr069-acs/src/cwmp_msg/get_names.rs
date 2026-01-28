@@ -1,9 +1,7 @@
-//use crate::cwmp_msg;
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use crate::cwmp_msg::RpcWrite;
+use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Writer;
 use serde::{Deserialize, Serialize};
-
-use crate::cwmp_msg::RpcWrite;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetParamterNames {
@@ -21,6 +19,7 @@ impl GetParamterNames {
         }
     }
 }
+
 impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterNames {
     fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W> {
         // --- <cwmp:InformResponse>
