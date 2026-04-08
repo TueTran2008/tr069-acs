@@ -1,4 +1,8 @@
 pub mod consts;
+use std::collections::HashMap;
+
+use reqwest::header::ValuesMut;
+
 use crate::cwmp_msg::{self, get_names::GetParamterNames, CWMPMsg, InformResponse};
 
 /*
@@ -90,13 +94,23 @@ impl Default for SessionCwmp {
 }
 
 #[derive(Default)]
+pub struct DeviceIndentify {
+    serial_number: String,
+    product_class: Option<String>,
+}
+
+#[derive(Default)]
 pub struct SessionList {
-    session: Vec<SessionCwmp>,
+    session: HashMap<DeviceIndentify>,
 }
 
 impl SessionList {
-    pub fn insert(mut self, value: SessionCwmp) {
-        self.session.push(value);
+    pub fn insert_sn(mut self, value: String) {
+        let new_device = DeviceIndentify {
+            serial_number: value,
+            product_class: None,
+        };
+        self.session.push(new_device);
     }
 }
 

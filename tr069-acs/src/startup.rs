@@ -3,28 +3,33 @@
 use std::sync::Arc;
 
 use crate::{
-    cwmp_msg::{self, session, Envelope, InformResponse},
+    cwmp_msg::{self, Envelope, InformResponse},
     session::{
         consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
         SessionCwmp, SessionList,
     },
+    App,
 };
 //use crate::session;
+use axum::extract::State;
 use axum::routing::post;
 use axum::Router;
-
 //use axum_cookie::CookieManager;
 //use axum_xml_up::Xml;
 use tokio::{net::TcpListener, sync::RwLock};
 use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
 use uuid::Uuid;
 // Global variable shared between thread and handler
-
+#[derive(Clone)]
 struct AppState {
     app_session: Arc<RwLock<SessionList>>,
 }
+
 //#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
+    let state = AppState {
+        app_session: Arc::new(RwLock::new(SessionList::default())),
+    };
     let session_store = MemoryStore::default();
     let session_expire = Expiry::OnInactivity(Duration::seconds(SESSION_EXPIRE_TIME as i64));
     let session_layer = SessionManagerLayer::new(session_store)
@@ -34,14 +39,15 @@ pub async fn run(listener: TcpListener) {
 
     let router = Router::new()
         .route("/", post(xml_request_handler))
-        .layer(session_layer);
+        .layer(session_layer)
+        .with_state(state);
 
     axum::serve(listener, router).await.unwrap();
 }
 
 #[axum::debug_handler]
 pub async fn xml_request_handler(
-    //State(state): State<AppState>,
+    State(state): State<AppState>,
     session: Session,
     payload: Envelope,
 ) -> String {
@@ -66,15 +72,9 @@ pub async fn xml_request_handler(
         }
     }
     //match id {}
+    tracing::debug!("Get the session id {:#?}", session);
 
-    tracing::debug!("Get the session id {:?} - {:#?}", session, session);
-
-    //if let Some(id) = session.id() {
-    //    //let found_id = session_id.get::<String>(&id.to_string()).await;
-    //    tracing::debug!("Found the session ID in the request {:?}", id);
-    //} else {
-    //}
-
+    //SessionCwmp::handle_http(V, cwmp_msg)
     //let res = SessionCwmp::handle_http(&mut self, cwmp_msg);
     let recv_msg_id = payload.get_msg_id().unwrap();
 
