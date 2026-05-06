@@ -214,6 +214,17 @@ pub(crate) struct Inform {
     parameter_list: Vec<ParameterList>,
 }
 
+impl Inform {
+    // Get serial_number of the inform message
+    pub fn get_sn(&self) -> Option<&String> {
+        if let Some(ref sn) = self.device_id.serial_number {
+            Some(sn)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Serialize)]
 struct ID {
     #[serde(rename = "@mustUnderstand")]
@@ -469,10 +480,12 @@ impl Envelope {
             soap_env: Some(String::from(SOAP_XSI_NP)),
             header: Some(Header::new(msg_id)),
             body: Some(Body { msg_type: msg_body }), // attrs: HashMap::new(),
-                                                     //is_empty: false,
         }
     }
 
+    pub fn get_body_payload(&self) -> Option<&CWMPMsg> {
+        self.body.as_ref().map(|body| &body.msg_type)
+    }
     pub fn new_empty() -> Self {
         Self {
             cwmp: None,

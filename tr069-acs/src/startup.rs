@@ -3,9 +3,10 @@
 use std::sync::Arc;
 
 use crate::{
-    cwmp_msg::{self, Envelope, InformResponse},
+    cwmp_msg::{self, CWMPMsg, Envelope, Inform, InformResponse},
     session::{
         consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
+        device_manager::DeviceSessionManager,
         SessionCwmp, SessionList,
     },
     App,
@@ -16,19 +17,24 @@ use axum::routing::post;
 use axum::Router;
 //use axum_cookie::CookieManager;
 //use axum_xml_up::Xml;
-use tokio::{net::TcpListener, sync::RwLock};
+use tokio::{
+    net::TcpListener,
+    sync::{Mutex, RwLock},
+};
 use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
 use uuid::Uuid;
 // Global variable shared between thread and handler
 #[derive(Clone)]
 struct AppState {
-    app_session: Arc<RwLock<SessionList>>,
+    //app_session: Arc<RwLock<SessionList>>,
+    device_manager: Arc<Mutex<DeviceSessionManager>>,
 }
 
 //#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
     let state = AppState {
-        app_session: Arc::new(RwLock::new(SessionList::default())),
+        //app_session: Arc::new(RwLock::new(SessionList::default())),
+        device_manager: Arc::new(Mutex::new(DeviceSessionManager::new())),
     };
     let session_store = MemoryStore::default();
     let session_expire = Expiry::OnInactivity(Duration::seconds(SESSION_EXPIRE_TIME as i64));
@@ -47,7 +53,7 @@ pub async fn run(listener: TcpListener) {
 
 #[axum::debug_handler]
 pub async fn xml_request_handler(
-    State(state): State<AppState>,
+    State(mut state): State<AppState>,
     session: Session,
     payload: Envelope,
 ) -> String {
@@ -64,6 +70,17 @@ pub async fn xml_request_handler(
                     .insert("session_id", &new_ssesion_id.to_string())
                     .await;
                 tracing::debug!("Generate new session_id {:?}", new_ssesion_id.to_string());
+                if let Some(CWMPMsg::Inform(inform)) = payload.get_body_payload() {
+                    if let Some(client_sn) = inform.get_sn() {
+                        state
+                            .device_manager
+                            .lock()
+                            .await
+                            .insert_session(client_sn.clone());
+                    }
+                } else {
+                    tracing::error!("First message should be inform");
+                }
             }
         }
 
