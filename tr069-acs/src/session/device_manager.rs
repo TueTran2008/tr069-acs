@@ -17,4 +17,11 @@ impl DeviceSessionManager {
         let new_session = CWMPSession::new(device_id);
         self.list_devices.push(new_session);
     }
+
+    pub fn find_device(&self, device_id: &String) -> &CWMPSession {
+        self.list_devices
+            .iter()
+            .find(|&s| s.get_device_id() == device_id)
+            .unwrap()
+    }
 }

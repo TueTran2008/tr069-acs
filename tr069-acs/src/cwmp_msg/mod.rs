@@ -483,7 +483,7 @@ impl Envelope {
         }
     }
 
-    pub fn get_body_payload(&self) -> Option<&CWMPMsg> {
+    pub fn get_msg_body(&self) -> Option<&CWMPMsg> {
         self.body.as_ref().map(|body| &body.msg_type)
     }
     pub fn new_empty() -> Self {

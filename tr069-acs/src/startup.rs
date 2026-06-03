@@ -1,40 +1,24 @@
-//use std::sync::Arc;
-
-use std::sync::Arc;
-
 use crate::{
-    cwmp_msg::{self, CWMPMsg, Envelope, Inform, InformResponse},
-    session::{
-        consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
-        device_manager::DeviceSessionManager,
-        SessionCwmp, SessionList,
-    },
-    App,
+    cwmp_msg::{CWMPMsg, Envelope},
+    session::consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
 };
-//use crate::session;
-use axum::extract::State;
-use axum::routing::post;
 use axum::Router;
-//use axum_cookie::CookieManager;
-//use axum_xml_up::Xml;
-use tokio::{
-    net::TcpListener,
-    sync::{Mutex, RwLock},
-};
+use axum::{extract::State, routing::post};
+use tokio::net::TcpListener;
 use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
 use uuid::Uuid;
 // Global variable shared between thread and handler
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     //app_session: Arc<RwLock<SessionList>>,
-    device_manager: Arc<Mutex<DeviceSessionManager>>,
+    //device_manager: Arc<Mutex<DeviceSessionManager>>,
 }
 
 //#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
     let state = AppState {
         //app_session: Arc::new(RwLock::new(SessionList::default())),
-        device_manager: Arc::new(Mutex::new(DeviceSessionManager::new())),
+        //device_manager: Arc::new(Mutex::new(DeviceSessionManager::new())),
     };
     let session_store = MemoryStore::default();
     let session_expire = Expiry::OnInactivity(Duration::seconds(SESSION_EXPIRE_TIME as i64));
@@ -53,7 +37,7 @@ pub async fn run(listener: TcpListener) {
 
 #[axum::debug_handler]
 pub async fn xml_request_handler(
-    State(mut state): State<AppState>,
+    State(state): State<AppState>,
     session: Session,
     payload: Envelope,
 ) -> String {
@@ -62,22 +46,16 @@ pub async fn xml_request_handler(
     match session_id {
         Ok(session_id) => {
             if let Some(session_id) = session_id {
-                tracing::debug!("Found the session ID in the request {:?}", session_id);
                 todo!("Implement when session ID available");
             } else {
                 let new_ssesion_id = Uuid::new_v4();
                 let _get_id = session
                     .insert("session_id", &new_ssesion_id.to_string())
                     .await;
+
                 tracing::debug!("Generate new session_id {:?}", new_ssesion_id.to_string());
-                if let Some(CWMPMsg::Inform(inform)) = payload.get_body_payload() {
-                    if let Some(client_sn) = inform.get_sn() {
-                        state
-                            .device_manager
-                            .lock()
-                            .await
-                            .insert_session(client_sn.clone());
-                    }
+
+                if let Some(CWMPMsg::Inform(inform)) = payload.get_msg_body() {
                 } else {
                     tracing::error!("First message should be inform");
                 }
@@ -88,21 +66,8 @@ pub async fn xml_request_handler(
             todo!("Implement when cannot get the session with the Json and Store errors");
         }
     }
-    //match id {}
-    tracing::debug!("Get the session id {:#?}", session);
 
-    //SessionCwmp::handle_http(V, cwmp_msg)
-    //let res = SessionCwmp::handle_http(&mut self, cwmp_msg);
-    let recv_msg_id = payload.get_msg_id().unwrap();
-
-    let msg_body = InformResponse { max_envelopes: 1 };
-
-    let res = Envelope::new(
-        &String::from(recv_msg_id),
-        cwmp_msg::CWMPMsg::InformResponse(msg_body),
-    );
-
-    let xml = String::from_utf8(res.create_xml().unwrap()).unwrap();
+    let xml = String::from("Danzel dumfries");
 
     tracing::info!("response {xml}");
     xml

@@ -1,10 +1,9 @@
 //This will simulate the CWMP client state from begining of the session to the end of the session
 
 use crate::error::Result;
-use crate::session::cwmp_session::CWMPSession;
+use crate::session::cwmp_session::CWMPStateAction;
 
 pub trait ClientState {
     fn name(&mut self) -> &'static str;
-    fn on_enter(self: Box<Self>, session: &mut CWMPSession) -> Result<Box<dyn ClientState>>;
-    //fn on_exit(&self, session: &CWMPSession) -> Result<Box<dyn ClientState>>;
+    fn on_enter(self: Box<Self>, session: CWMPStateAction) -> Result<Box<dyn ClientState>>;
 }
