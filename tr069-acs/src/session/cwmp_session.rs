@@ -1,3 +1,5 @@
+use tracing_log::log;
+
 //pub struct StateIdle;
 //
 use crate::error::Result;
@@ -11,14 +13,16 @@ pub struct StateExchangeRpc;
 pub struct StateNoMoreRpc;
 
 pub enum CWMPStateAction {
-    CWMPStateReceiveInform,
+    CWMPStateReceiveInform(String),
     CWMPStateReceiveResponse,
+    CWMPStateReceiveEmpty,
     CWMPStateTransition(Box<dyn ClientState>), // Pass in next state
     CWMPStateEnd,
 }
 //#[derive(Debug)]
 pub struct CWMPSession {
     response_envelope: Option<Envelope>,
+    msg_id: Option<String>,
     device_id: String,
     list_rpc: Vec<CWMPMsg>,
     state: Box<dyn ClientState>,
@@ -28,19 +32,68 @@ impl CWMPSession {
     pub fn new(device_id: String) -> Self {
         Self {
             response_envelope: None,
+            msg_id: None,
             device_id,
             list_rpc: Vec::new(),
             state: Box::new(StateIdle),
         }
     }
 
-    pub fn apply_action(&self, action: CWMPStateAction) -> Result<()> {
+    pub async fn apply_action(&mut self, action: CWMPStateAction) -> Result<Option<Envelope>> {
         match action {
-            CWMPStateAction::CWMPStateTransition()
-        }
-        Ok(())
+            /*
+             * Typical ACS processing:
+             * Authenticate device
+             * Parse DeviceId
+             * Update Last Inform Time
+             * Update IP
+             * Upddate Software Version
+             * Upddate Serial Number
+             * Savde Event list
+             * Detdermine why the device connected
+             * */
+            CWMPStateAction::CWMPStateReceiveInform(msg_id) => {
+                self.msg_id = Some(msg_id);
+                let msg_body = InformResponse { max_envelopes: 1 };
+                let res = Envelope::new(
+                    self.msg_id.as_ref().unwrap(),
+                    CWMPMsg::InformResponse(msg_body),
+                );
+                self.transition_to(Box::new(StateExchangeRpc));
+                return Ok(Some(res));
+            }
+            /*CPE sends Empty HTTP POST ~ "CPE is asking do you have any command for me" */
+            CWMPStateAction::CWMPStateReceiveEmpty => {
+                if let Some(next_rpc) = self.list_rpc.pop() {
+                    let res = Envelope::new(self.msg_id.as_ref().unwrap(), next_rpc);
+                    return Ok(Some(res));
+                } else {
+                    self.transition_to(Box::new(StateNoMoreRpc));
+                    return Ok(None);
+                }
+            }
+            /*Do action base on the the RPC response from Device*/
+            CWMPStateAction::CWMPStateReceiveResponse => {
+                return Ok(None);
+            }
+            CWMPStateAction::CWMPStateTransition(next) => {
+                self.transition_to(next);
+                return Ok(None);
+            }
+            _ => todo!("implement other"),
+        };
+        //Ok(None)
     }
-    pub fn transition(&mut self, next_state: CWMPStateAction) -> Result<()> {
+
+    fn transition_to(&mut self, next_state: Box<dyn ClientState>) -> Result<()> {
+        let next_state_name = next_state.name();
+        log::debug!(
+            "Client {} transit to state:{}",
+            self.get_device_id(),
+            next_state_name
+        );
+        self.state = next_state;
+        //self.state.on_enter(self)
         Ok(())
     }
 
@@ -62,7 +115,7 @@ impl CWMPSession {
 }
 
 impl ClientState for StateNoMoreRpc {
-    fn name(&mut self) -> &'static str {
+    fn name(&self) -> &'static str {
         "Exchanging CWMP RPCs"
     }
 
@@ -72,7 +125,7 @@ impl ClientState for StateNoMoreRpc {
 }
 
 impl ClientState for StateExchangeRpc {
-    fn name(&mut self) -> &'static str {
+    fn name(&self) -> &'static str {
         "Exchanging CWMP RPCs"
     }
 
@@ -86,7 +139,7 @@ impl ClientState for StateExchangeRpc {
 }
 
 impl ClientState for StateIdle {
-    fn name(&mut self) -> &'static str {
+    fn name(&self) -> &'static str {
         "Idle"
     }
 

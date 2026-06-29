@@ -4,6 +4,6 @@ use crate::error::Result;
 use crate::session::cwmp_session::CWMPStateAction;
 
 pub trait ClientState {
-    fn name(&mut self) -> &'static str;
+    fn name(&self) -> &'static str;
     fn on_enter(self: Box<Self>, session: CWMPStateAction) -> Result<Box<dyn ClientState>>;
 }
