@@ -27,7 +27,7 @@ axum-cookie = "0.2.4"
 uuid = { version = "1.19.0", features = ["v4"] }
 tower-sessions = "0.13.0"
 thiserror = "2.0.18"
-
+dashmap = "6.2.1"
 [dev-dependencies]
 reqwest = "0.12.13"
 

@@ -19,7 +19,7 @@ pub enum CWMPStateAction {
     CWMPStateTransition(Box<dyn ClientState>), // Pass in next state
     CWMPStateEnd,
 }
-//#[derive(Debug)]
+//#[derive(Eq, Hash, PartialEq)]
 pub struct CWMPSession {
     response_envelope: Option<Envelope>,
     msg_id: Option<String>,

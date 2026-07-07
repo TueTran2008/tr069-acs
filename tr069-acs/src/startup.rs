@@ -1,6 +1,9 @@
 use crate::{
     cwmp_msg::{CWMPMsg, Envelope},
-    session::consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
+    session::{
+        consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
+        device_manager::DeviceSessionManager,
+    },
 };
 use axum::Router;
 use axum::{extract::State, routing::post};
@@ -11,14 +14,14 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AppState {
     //app_session: Arc<RwLock<SessionList>>,
-    //device_manager: Arc<Mutex<DeviceSessionManager>>,
+    device_manager: DeviceSessionManager,
 }
 
 //#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
     let state = AppState {
         //app_session: Arc::new(RwLock::new(SessionList::default())),
-        //device_manager: Arc::new(Mutex::new(DeviceSessionManager::new())),
+        device_manager: DeviceSessionManager::new(),
     };
     let session_store = MemoryStore::default();
     let session_expire = Expiry::OnInactivity(Duration::seconds(SESSION_EXPIRE_TIME as i64));
