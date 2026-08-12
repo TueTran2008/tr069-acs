@@ -7,6 +7,7 @@ use axum::extract::{FromRequest, Request};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{async_trait, http};
+use kameo::Reply;
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
 //use quick_xml::name::{Namespace, NamespaceResolver, ResolveResult};
 use quick_xml::{de::*, NsReader, Writer};
@@ -442,7 +443,7 @@ struct Body {
     msg_type: CWMPMsg,
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Deserialize, Debug, Serialize, Reply)]
 #[serde(rename = "Envelope")]
 pub struct Envelope {
     #[serde(rename = "@xmlns:cwmp")]

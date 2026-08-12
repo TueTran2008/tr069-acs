@@ -3,6 +3,7 @@ pub mod consts;
 
 //use reqwest::header::ValuesMut;
 mod cwmp_session;
+pub mod device_actor;
 pub mod device_manager;
 pub mod state;
 use crate::cwmp_msg::{self, get_names::GetParamterNames, CWMPMsg, InformResponse};

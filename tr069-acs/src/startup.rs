@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     cwmp_msg::{CWMPMsg, Envelope},
     session::{
@@ -14,14 +16,14 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AppState {
     //app_session: Arc<RwLock<SessionList>>,
-    device_manager: DeviceSessionManager,
+    device_manager: Arc<DeviceSessionManager>,
 }
 
 //#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
     let state = AppState {
         //app_session: Arc::new(RwLock::new(SessionList::default())),
-        device_manager: DeviceSessionManager::new(),
+        device_manager: Arc::new(DeviceSessionManager::new()),
     };
     let session_store = MemoryStore::default();
     let session_expire = Expiry::OnInactivity(Duration::seconds(SESSION_EXPIRE_TIME as i64));
@@ -49,7 +51,11 @@ pub async fn xml_request_handler(
     match session_id {
         Ok(session_id) => {
             if let Some(session_id) = session_id {
-                todo!("Implement when session ID available");
+                //todo!("Implement when session ID available");
+                let device = state.device_manager.get(&session_id);
+                let ret = device.unwrap().value();
+
+                //current_stateVg
             } else {
                 let new_ssesion_id = Uuid::new_v4();
                 let _get_id = session
@@ -58,10 +64,10 @@ pub async fn xml_request_handler(
 
                 tracing::debug!("Generate new session_id {:?}", new_ssesion_id.to_string());
 
-                if let Some(CWMPMsg::Inform(inform)) = payload.get_msg_body() {
-                } else {
-                    tracing::error!("First message should be inform");
-                }
+                //if let Some(CWMPMsg::Inform(inform)) = payload.get_msg_body() {
+                //} else {
+                //    tracing::error!("First message should be inform");
+                //}
             }
         }
 
