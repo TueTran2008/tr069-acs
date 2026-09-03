@@ -1,4 +1,4 @@
-use crate::cwmp_msg::RpcWrite;
+use crate::soap::RpcWrite;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Writer;
 use serde::{Deserialize, Serialize};

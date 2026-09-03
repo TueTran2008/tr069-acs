@@ -9,7 +9,7 @@ use tokio::runtime::Runtime;
 mod cwmp_msg;
 mod error;
 mod session;
-mod soap_xml;
+mod soap;
 mod startup;
 mod telemetry;
 // mod tower_test;

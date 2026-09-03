@@ -91,59 +91,59 @@
 
 // #[tokio::test]
 // async fn test_send_inform_message() {
-    // spawn_log();
-    // let port = contruct_test_acs().await;
-    // const INFORM_MESSAGE: &str = r#"
-    //                                 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-    //                                                xmlns:cwmp="urn:dslforum-org:cwmp-1-0">
-    //                                   <soap:Header>
-    //                                     <cwmp:ID soap:mustUnderstand="true">1</cwmp:ID>
-    //                                   </soap:Header>
-    //                                   <soap:Body>
-    //                                     <cwmp:Inform>
-    //                                       <DeviceId>
-    //                                         <Manufacturer>ExampleCo</Manufacturer>
-    //                                         <OUI>001A2B</OUI>
-    //                                         <ProductClass>RouterX</ProductClass>
-    //                                         <SerialNumber>123456789</SerialNumber>
-    //                                       </DeviceId>
-    //                                       <Event>
-    //                                         <EventStruct>
-    //                                           <EventCode>2 PERIODIC</EventCode>
-    //                                           <CommandKey></CommandKey>
-    //                                         </EventStruct>
-    //                                       </Event>
-    //                                       <MaxEnvelopes>1</MaxEnvelopes>
-    //                                       <CurrentTime>2025-10-07T10:00:00Z</CurrentTime>
-    //                                       <RetryCount>0</RetryCount>
-    //                                       <ParameterList soap:arrayType="cwmp:ParameterValueStruct[1]">
-    //                                         <ParameterValueStruct>
-    //                                           <Name>Device.ManagementServer.URL</Name>
-    //                                           <Value xsi:type="xsd:string"
-    //                                                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-    //                                                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    //                                             http://acs.example.com/acs
-    //                                           </Value>
-    //                                         </ParameterValueStruct>
-    //                                       </ParameterList>
-    //                                     </cwmp:Inform>
-    //                                   </soap:Body>
-    //                                 </soap:Envelope>
-    //                                 "#;
-    // //ACS Endpoint
-    // let url = format!("http://127.0.0.1:{}", port);
-    //
-    // // Build http client
-    // let client = reqwest::Client::new();
-    //
-    // let res = client
-    //     .post(url)
-    //     .header("Content-Type", "text/xml; charset=utf-8")
-    //     .header("SOAPAction", "\"\"")
-    //     .body(INFORM_MESSAGE)
-    //     .send()
-    //     .await
-    //     .unwrap();
-    //
-    // assert!();
+// spawn_log();
+// let port = contruct_test_acs().await;
+// const INFORM_MESSAGE: &str = r#"
+//                                 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+//                                                xmlns:cwmp="urn:dslforum-org:cwmp-1-0">
+//                                   <soap:Header>
+//                                     <cwmp:ID soap:mustUnderstand="true">1</cwmp:ID>
+//                                   </soap:Header>
+//                                   <soap:Body>
+//                                     <cwmp:Inform>
+//                                       <DeviceId>
+//                                         <Manufacturer>ExampleCo</Manufacturer>
+//                                         <OUI>001A2B</OUI>
+//                                         <ProductClass>RouterX</ProductClass>
+//                                         <SerialNumber>123456789</SerialNumber>
+//                                       </DeviceId>
+//                                       <Event>
+//                                         <EventStruct>
+//                                           <EventCode>2 PERIODIC</EventCode>
+//                                           <CommandKey></CommandKey>
+//                                         </EventStruct>
+//                                       </Event>
+//                                       <MaxEnvelopes>1</MaxEnvelopes>
+//                                       <CurrentTime>2025-10-07T10:00:00Z</CurrentTime>
+//                                       <RetryCount>0</RetryCount>
+//                                       <ParameterList soap:arrayType="cwmp:ParameterValueStruct[1]">
+//                                         <ParameterValueStruct>
+//                                           <Name>Device.ManagementServer.URL</Name>
+//                                           <Value xsi:type="xsd:string"
+//                                                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+//                                                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+//                                             http://acs.example.com/acs
+//                                           </Value>
+//                                         </ParameterValueStruct>
+//                                       </ParameterList>
+//                                     </cwmp:Inform>
+//                                   </soap:Body>
+//                                 </soap:Envelope>
+//                                 "#;
+// //ACS Endpoint
+// let url = format!("http://127.0.0.1:{}", port);
+//
+// // Build http client
+// let client = reqwest::Client::new();
+//
+// let res = client
+//     .post(url)
+//     .header("Content-Type", "text/xml; charset=utf-8")
+//     .header("SOAPAction", "\"\"")
+//     .body(INFORM_MESSAGE)
+//     .send()
+//     .await
+//     .unwrap();
+//
+// assert!();
 // }

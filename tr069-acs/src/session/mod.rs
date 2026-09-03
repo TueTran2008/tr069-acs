@@ -6,8 +6,8 @@ mod cwmp_session;
 pub mod device_actor;
 pub mod device_manager;
 pub mod state;
-use crate::cwmp_msg::{self, get_names::GetParamterNames, CWMPMsg, InformResponse};
-
+use crate::cwmp_msg::{self, CWMPMsg};
+use crate::soap::{get_names::GetParamterNames, inform::InformResponse};
 /*
 * Initialize a session in case there is a new inform
 */

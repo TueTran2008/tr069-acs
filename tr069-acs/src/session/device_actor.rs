@@ -1,11 +1,13 @@
+use dioxus::prelude::server_fn::response;
 //use dioxus::prelude::Context;
 use kameo::{
     message::{Context, Message},
     Actor,
 };
+use tracing_log::log::info;
 
 use crate::{
-    cwmp_msg::Envelope,
+    cwmp_msg::{CWMPMsg, Envelope},
     session::cwmp_session::{CWMPSession, CWMPStateAction},
 };
 
@@ -35,6 +37,8 @@ impl DeviceActor {
             state: CWMPSession::new(session_id.clone()),
         }
     }
+
+    pub fn add_rpc_command(&mut self, method: String) {}
 }
 
 impl Message<Envelope> for DeviceActor {
@@ -45,11 +49,28 @@ impl Message<Envelope> for DeviceActor {
         msg: Envelope,
         _ctx: &mut kameo::message::Context<Self, Self::Reply>,
     ) -> Self::Reply {
-        let response = self
-            .state
-            .apply_action(CWMPStateAction::CWMPStateReceiveResponse)
-            .await
-            .unwrap();
-        response.unwrap()
+        info!("Handle Envelope message {:?}", msg);
+        let msg_type = msg.get_msg_type().unwrap();
+        match msg_type {
+            CWMPMsg::Inform(_content) => {
+                let response = self
+                    .state
+                    .apply_action(CWMPStateAction::CWMPStateReceiveInform(
+                        msg.get_msg_id().unwrap_or(&String::from("")).clone(),
+                    ))
+                    .await
+                    .unwrap();
+                return response.unwrap();
+            }
+            CWMPMsg::EmptyRPC => {
+                let response = self
+                    .state
+                    .apply_action(CWMPStateAction::CWMPStateReceiveEmpty)
+                    .await
+                    .unwrap();
+                return response.unwrap();
+            }
+            _ => todo!("Implement other"),
+        }
     }
 }

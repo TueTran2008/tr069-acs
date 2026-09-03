@@ -4,8 +4,9 @@ use tracing_log::log;
 //
 use crate::error::Result;
 use crate::{
-    cwmp_msg::{CWMPMsg, Envelope, InformResponse},
+    cwmp_msg::{CWMPMsg, Envelope},
     session::state::client_state::ClientState,
+    soap::inform::InformResponse,
 };
 
 pub struct StateIdle; // When recevied Inform message from CWMP Client
@@ -49,7 +50,7 @@ impl CWMPSession {
              * Update IP
              * Upddate Software Version
              * Upddate Serial Number
-             * Savde Event list
+             * Saved Event list
              * Detdermine why the device connected
              * */
             CWMPStateAction::CWMPStateReceiveInform(msg_id) => {

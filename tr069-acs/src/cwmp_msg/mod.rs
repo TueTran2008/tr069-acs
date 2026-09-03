@@ -1,5 +1,3 @@
-pub mod get_names;
-pub mod get_values;
 pub mod session;
 
 //use crate::telemetry::{get_subscriber, init_subscriber};
@@ -8,15 +6,16 @@ use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{async_trait, http};
 use kameo::Reply;
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::events::{BytesDecl, BytesText, Event};
 //use quick_xml::name::{Namespace, NamespaceResolver, ResolveResult};
-use quick_xml::{de::*, NsReader, Writer};
+use quick_xml::{de::*, Writer};
 use serde::{Deserialize, Serialize};
 //use std::convert::Infallible;
-use std::io::{Cursor, Write};
+use crate::soap::get_names::GetParamterNames;
+use crate::soap::inform::InformResponse;
+use crate::soap::RpcWrite;
+use std::io::Cursor;
 use std::panic;
-
-use crate::cwmp_msg::get_names::GetParamterNames;
 
 //pub const ENC_NP: &str = "soap-enc";
 //pub const ENV_NP: &str = "soap-env";
@@ -27,11 +26,6 @@ pub const SOAP_ENC_NP: &str = r#"http://schemas.xmlsoap.org/soap/encoding/"#;
 pub const SOAP_CWMP_NP: &str = r#"urn:dslforum-org:cwmp-1-0"#;
 pub const SOAP_XSD_NP: &str = r#"http://www.w3.org/2001/XMLSchema"#;
 pub const SOAP_XSI_NP: &str = r#"http://www.w3.org/2001/XMLSchema-instance"#;
-
-/// Define methods use to build soap message
-pub(crate) trait RpcWrite<'a, W> {
-    fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W>;
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
@@ -261,48 +255,6 @@ impl Default for Header {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct InformResponse {
-    #[serde(rename = "MaxEnvelopes")]
-    pub max_envelopes: u32,
-}
-
-impl Default for InformResponse {
-    fn default() -> Self {
-        Self { max_envelopes: 1 }
-    }
-}
-
-impl<'a, W: std::io::Write> RpcWrite<'a, W> for InformResponse {
-    fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W> {
-        // let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
-
-        // --- <cwmp:InformResponse>
-        let inform_res = BytesStart::new("cwmp:InformResponse");
-        xml_writer.write_event(Event::Start(inform_res)).unwrap();
-
-        // --- MaxEnvelopes
-        let max_envelopes = BytesStart::new("MaxEnvelopes");
-        xml_writer.write_event(Event::Start(max_envelopes)).unwrap();
-        xml_writer
-            .write_event(Event::Text(BytesText::new("1")))
-            .unwrap();
-
-        // -- Close MaxEnvelopes
-
-        xml_writer
-            .write_event(Event::End(BytesEnd::new("MaxEnvelopes")))
-            .unwrap();
-        xml_writer
-            .write_event(Event::End(BytesEnd::new("cwmp:InformResponse")))
-            .unwrap();
-
-        // Output - Generate Output
-        // xml_writer.into_inner().into_inner()
-        xml_writer
-    }
-}
-
 impl Envelope {
     pub fn get_msg_id(&self) -> Option<&String> {
         //if let Some(ref msg_id) = self.header.id.value {
@@ -359,7 +311,6 @@ impl Envelope {
             .write_inner_content(|xml| {
                 if let Some(ref text) = self.header.as_ref().unwrap().id.value {
                     let header_random_str = text.as_str();
-                    //let must_understand = "soap-env:mustUnderstand=\"1\"";
                     let _ = xml
                         .create_element("soap-env:Header")
                         .write_inner_content(|xml| {
@@ -484,9 +435,10 @@ impl Envelope {
         }
     }
 
-    pub fn get_msg_body(&self) -> Option<&CWMPMsg> {
+    pub fn get_msg_type(&self) -> Option<&CWMPMsg> {
         self.body.as_ref().map(|body| &body.msg_type)
     }
+
     pub fn new_empty() -> Self {
         Self {
             cwmp: None,
@@ -498,6 +450,7 @@ impl Envelope {
             body: None,
         }
     }
+
     pub fn is_empty(&self) -> bool {
         if self.header.is_some() {
             return false;
