@@ -57,6 +57,7 @@ pub async fn xml_request_handler(
                 device = state.device_manager.read().await.get(&session_id).unwrap();
             } else {
                 let new_session_id = Uuid::new_v4().to_string();
+                let _get_id = session.insert("session_id", &new_session_id).await;
                 {
                     let mut manager = state.device_manager.write().await;
                     manager.insert_session(new_session_id.clone());

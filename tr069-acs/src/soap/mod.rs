@@ -1,3 +1,4 @@
+pub mod fault;
 pub mod get_names;
 pub mod get_rpc;
 pub mod get_values;

@@ -1,8 +1,10 @@
-use tracing_log::log;
+use tracing::field::Empty;
+use tracing_log::log::{self, info};
 
 //pub struct StateIdle;
 //
 use crate::error::Result;
+use crate::soap::get_rpc::GetRPCMethods;
 use crate::{
     cwmp_msg::{CWMPMsg, Envelope},
     session::state::client_state::ClientState,
@@ -31,13 +33,19 @@ pub struct CWMPSession {
 
 impl CWMPSession {
     pub fn new(device_id: String) -> Self {
-        Self {
+        let mut cwmp_session = Self {
             response_envelope: None,
             msg_id: None,
             device_id,
             list_rpc: Vec::new(),
             state: Box::new(StateIdle),
-        }
+        };
+        cwmp_session.prepare_default_list();
+        cwmp_session
+    }
+    fn prepare_default_list(&mut self) {
+        let get_rpc = CWMPMsg::GetRPCMethods(GetRPCMethods::new());
+        self.list_rpc.push(get_rpc);
     }
 
     pub async fn apply_action(&mut self, action: CWMPStateAction) -> Result<Option<Envelope>> {
@@ -70,12 +78,20 @@ impl CWMPSession {
                     return Ok(Some(res));
                 } else {
                     self.transition_to(Box::new(StateNoMoreRpc));
-                    return Ok(None);
+                    info!("Send empty to CWMP client");
+                    return Ok(Some(Envelope::new_empty()));
                 }
             }
             /*Do action base on the the RPC response from Device*/
             CWMPStateAction::CWMPStateReceiveResponse => {
-                return Ok(None);
+                if let Some(next_rpc) = self.list_rpc.pop() {
+                    let res = Envelope::new(self.msg_id.as_ref().unwrap(), next_rpc);
+                    return Ok(Some(res));
+                } else {
+                    self.transition_to(Box::new(StateNoMoreRpc));
+                    info!("Send empty to CWMP client");
+                    return Ok(Some(Envelope::new_empty()));
+                }
             }
             CWMPStateAction::CWMPStateTransition(next) => {
                 self.transition_to(next);

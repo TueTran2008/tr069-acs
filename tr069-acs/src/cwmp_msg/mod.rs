@@ -3,16 +3,20 @@ pub mod session;
 //use crate::telemetry::{get_subscriber, init_subscriber};
 use axum::extract::{FromRequest, Request};
 use axum::http::{HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::response::{IntoResponse, NoContent, Response};
 use axum::{async_trait, http};
 use kameo::Reply;
 use quick_xml::events::{BytesDecl, BytesText, Event};
 //use quick_xml::name::{Namespace, NamespaceResolver, ResolveResult};
+use crate::soap::fault::{Fault, Tr069FaultCode};
 use quick_xml::{de::*, Writer};
 use serde::{Deserialize, Serialize};
+use tracing::info_span;
+use tracing_log::log::info;
 //use std::convert::Infallible;
 use crate::soap::get_names::GetParamterNames;
-use crate::soap::inform::InformResponse;
+use crate::soap::get_rpc::GetRPCMethods;
+use crate::soap::inform::{Inform, InformResponse};
 use crate::soap::RpcWrite;
 use std::io::Cursor;
 use std::panic;
@@ -27,37 +31,6 @@ pub const SOAP_CWMP_NP: &str = r#"urn:dslforum-org:cwmp-1-0"#;
 pub const SOAP_XSD_NP: &str = r#"http://www.w3.org/2001/XMLSchema"#;
 pub const SOAP_XSI_NP: &str = r#"http://www.w3.org/2001/XMLSchema-instance"#;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u16)]
-pub enum Tr069FaultCode {
-    MethodNotSupported = 9000,
-    RequestDenied = 9001,
-    InternalError = 9002,
-    InvalidArguments = 9003,
-    ResourcesExceeded = 9004,
-    InvalidParameterName = 9005,
-    InvalidParameterType = 9006,
-    InvalidParameterValue = 9007,
-    NonWritableParameter = 9008,
-    NotificationRequestRejected = 9009,
-    DownloadFailure = 9010,
-    UploadFailure = 9011,
-    FileTransferAuthFailure = 9012,
-    UnsupportedProtocol = 9013,
-
-    /// Any code not defined by TR-069
-    Unknown(u16),
-}
-
-impl IntoResponse for Tr069FaultCode {
-    fn into_response(self) -> Response {
-        let body = match self {
-            Tr069FaultCode::InternalError => "Internal Error hehehe",
-            _ => "Error that hasn't been define",
-        };
-        (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
-    }
-}
 //#[derive(Debug)]
 //pub enum CpeRPC {
 //    Inform,
@@ -128,7 +101,7 @@ struct EventStruct {
 }
 
 #[derive(Debug, Deserialize, Default, Serialize)]
-struct EventList {
+pub struct EventList {
     #[serde(rename = "@arrayType")]
     nb_of_event: Option<String>,
 
@@ -137,7 +110,7 @@ struct EventList {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
-struct DeviceIDStruct {
+pub struct DeviceIDStruct {
     #[serde(rename = "Manufacturer")]
     manufacturer: Option<String>,
 
@@ -148,7 +121,7 @@ struct DeviceIDStruct {
     product_class: Option<String>,
 
     #[serde(rename = "SerialNumber")]
-    serial_number: Option<String>,
+    pub serial_number: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -170,7 +143,7 @@ struct AnySimpleType {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct ParameterValueStruct {
+pub struct ParameterValueStruct {
     #[serde(rename = "Name")]
     name: Option<String>,
     //This is the value the Parameter is to be set. The CPE
@@ -180,46 +153,13 @@ struct ParameterValueStruct {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct ParameterList {
+pub struct ParameterList {
     #[serde(rename = "ParameterValueStruct")]
     parameter_struct: Vec<ParameterValueStruct>,
 
     #[serde(rename = "@arrayType")]
     nb_of_parameter: Option<String>,
 }
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub(crate) struct Inform {
-    #[serde(rename = "DeviceId")]
-    device_id: DeviceIDStruct,
-
-    #[serde(rename = "Event")]
-    event: EventList,
-
-    #[serde(rename = "MaxEnvelopes")]
-    max_envelopes: u32,
-
-    #[serde(rename = "CurrentTime")]
-    current_time: String,
-
-    #[serde(rename = "RetryCount")]
-    retry_count: u32,
-
-    #[serde(rename = "ParameterList")]
-    parameter_list: Vec<ParameterList>,
-}
-
-impl Inform {
-    // Get serial_number of the inform message
-    pub fn get_sn(&self) -> Option<&String> {
-        if let Some(ref sn) = self.device_id.serial_number {
-            Some(sn)
-        } else {
-            None
-        }
-    }
-}
-
 #[derive(Deserialize, Debug, Serialize)]
 struct ID {
     #[serde(rename = "@mustUnderstand")]
@@ -285,7 +225,6 @@ impl Envelope {
 
     pub fn create_xml(&self) -> Option<Vec<u8>> {
         let mut xml_writer = Writer::new(Cursor::new(Vec::new()));
-
         xml_writer
             .write_event(Event::Decl(BytesDecl::new(
                 r#"1.0"#,
@@ -320,38 +259,59 @@ impl Envelope {
                                 .unwrap();
                             Ok(())
                         });
-
-                    match &self.body.as_ref().unwrap().msg_type {
-                        CWMPMsg::InformResponse(msg) => {
-                            msg.build_message(xml);
-                        }
-                        _ => panic!("Has implement message build for this type"),
-                    }
+                    let _ = xml
+                        .create_element("soap-env:Body")
+                        .write_inner_content(|xml| {
+                            match &self.body.as_ref().unwrap().msg_type {
+                                CWMPMsg::InformResponse(msg) => {
+                                    msg.build_message(xml);
+                                }
+                                CWMPMsg::GetRPCMethods(msg) => {
+                                    msg.build_message(xml);
+                                }
+                                CWMPMsg::EmptyRPC => {
+                                    return Ok(());
+                                }
+                                _ => {
+                                    panic!("Has implement message build for this type");
+                                }
+                            }
+                            Ok(())
+                        });
                     Ok(())
                 } else {
-                    // None
-                    // Err(std)
                     panic!("Failed to construct inner content of SOAP Message");
                 }
             })
-            // .write_text_content(BytesText::new(""))
-            // .write_empty()
             .unwrap();
-
-        Some(xml_writer.into_inner().into_inner())
+        let ret = xml_writer.into_inner().into_inner();
+        Some(ret)
     }
 }
 
 impl IntoResponse for Envelope {
     fn into_response(self) -> Response {
-        (
-            [(
-                http::header::CONTENT_TYPE,
-                HeaderValue::from_static(r#"text/xml; charset=\"utf-8\""#),
-            )],
-            String::from_utf8(self.create_xml().unwrap()).unwrap(),
-        )
-            .into_response()
+        if self.is_empty == false {
+            info!("Content isn't empty");
+            return (
+                [(
+                    http::header::CONTENT_TYPE,
+                    HeaderValue::from_static(r#"text/xml; charset=\"utf-8\""#),
+                )],
+                String::from_utf8(self.create_xml().unwrap()).unwrap(),
+            )
+                .into_response();
+        } else {
+            info!("Content ============= empty");
+            return (
+                [(
+                    http::header::CONTENT_TYPE,
+                    HeaderValue::from_static(r#"text/xml; charset=\"utf-8\""#),
+                )],
+                NoContent,
+            )
+                .into_response();
+        }
     }
 }
 
@@ -362,6 +322,7 @@ impl IntoResponse for Envelope {
 pub enum CWMPMsg {
     Inform(Inform),
     InformResponse(InformResponse),
+    GetRPCMethods(GetRPCMethods),
     GetRPCMethodsResponse,
     SetParameterValuesResponse,
     GetParameterValuesResponse,
@@ -385,6 +346,7 @@ pub enum CWMPMsg {
     GetOptionsResponse,
     ScheduleInformResponse,
     GetAllQueuedEventsResponse,
+    Fault(Fault),
     EmptyRPC,
 }
 
@@ -418,8 +380,8 @@ pub struct Envelope {
     #[serde(rename = "Body")]
     body: Option<Body>,
     // Empty body of the HTTP request
-    //#[serde(skip)]
-    //is_empty: bool,
+    #[serde(skip)]
+    is_empty: bool,
 }
 
 impl Envelope {
@@ -432,6 +394,7 @@ impl Envelope {
             soap_env: Some(String::from(SOAP_XSI_NP)),
             header: Some(Header::new(msg_id)),
             body: Some(Body { msg_type: msg_body }), // attrs: HashMap::new(),
+            is_empty: false,
         }
     }
 
@@ -440,6 +403,9 @@ impl Envelope {
     }
 
     pub fn new_empty() -> Self {
+        let empty_body = Body {
+            msg_type: CWMPMsg::EmptyRPC,
+        };
         Self {
             cwmp: None,
             soap_enc: None,
@@ -447,7 +413,8 @@ impl Envelope {
             xsd: None,
             soap_env: None,
             header: None,
-            body: None,
+            body: Some(empty_body),
+            is_empty: true,
         }
     }
 
@@ -535,9 +502,6 @@ where
 //         }
 //     }
 // }
-pub trait HandleCwmpMessage {
-    fn parse(xml: &str) -> Self;
-}
 
 // impl HandleCwmpMessage for Inform {
 //     fn parse(xml: &str) -> Self {

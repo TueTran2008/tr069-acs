@@ -1,7 +1,40 @@
+use crate::cwmp_msg::{DeviceIDStruct, EventList, ParameterList};
 use crate::soap::RpcWrite;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Writer;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub(crate) struct Inform {
+    #[serde(rename = "DeviceId")]
+    device_id: DeviceIDStruct,
+
+    #[serde(rename = "Event")]
+    event: EventList,
+
+    #[serde(rename = "MaxEnvelopes")]
+    max_envelopes: u32,
+
+    #[serde(rename = "CurrentTime")]
+    current_time: String,
+
+    #[serde(rename = "RetryCount")]
+    retry_count: u32,
+
+    #[serde(rename = "ParameterList")]
+    parameter_list: Vec<ParameterList>,
+}
+
+impl Inform {
+    // Get serial_number of the inform message
+    pub fn get_sn(&self) -> Option<&String> {
+        if let Some(ref sn) = self.device_id.serial_number {
+            Some(sn)
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InformResponse {

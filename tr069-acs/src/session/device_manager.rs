@@ -25,10 +25,4 @@ impl DeviceSessionManager {
     pub fn get(&self, id: &String) -> Option<ActorRef<DeviceActor>> {
         self.list_devices.get(id).map(|entry| entry.value().clone())
     }
-    //pub fn find_device(&self, device_id: &String) -> &CWMPSession {
-    //    self.list_devices
-    //        .iter()
-    //        .find(|&s| s.get_device_id() == device_id)
-    //        .unwrap()
-    //}
 }

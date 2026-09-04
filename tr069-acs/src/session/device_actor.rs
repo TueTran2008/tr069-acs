@@ -37,8 +37,6 @@ impl DeviceActor {
             state: CWMPSession::new(session_id.clone()),
         }
     }
-
-    pub fn add_rpc_command(&mut self, method: String) {}
 }
 
 impl Message<Envelope> for DeviceActor {
@@ -66,6 +64,14 @@ impl Message<Envelope> for DeviceActor {
                 let response = self
                     .state
                     .apply_action(CWMPStateAction::CWMPStateReceiveEmpty)
+                    .await
+                    .unwrap();
+                return response.unwrap();
+            }
+            CWMPMsg::Fault(_) => {
+                let response = self
+                    .state
+                    .apply_action(CWMPStateAction::CWMPStateReceiveResponse)
                     .await
                     .unwrap();
                 return response.unwrap();
