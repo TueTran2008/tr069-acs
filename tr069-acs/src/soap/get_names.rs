@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct GetParamterNames {
     #[serde(rename = "ParameterPath")]
     param_path: String,
+
     #[serde(rename = "NextLevel")]
     next_level: bool,
 }
@@ -17,6 +18,10 @@ impl GetParamterNames {
             param_path,
             next_level,
         }
+    }
+
+    pub fn builder() -> GetParamterNamesBuilder {
+        GetParamterNamesBuilder::default()
     }
 }
 
@@ -57,5 +62,34 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterNames {
         // Output - Generate Output
         // xml_writer.into_inner().into_inner()
         xml_writer
+    }
+}
+
+#[derive(Default)]
+pub struct GetParamterNamesBuilder {
+    param_path: String,
+    next_level: bool,
+}
+
+impl GetParamterNamesBuilder {
+    pub fn new(param_path: String, next_level: bool) -> Self {
+        Self {
+            param_path,
+            next_level,
+        }
+    }
+    pub fn param_path<S: Into<String>>(&mut self, param_path: S) {
+        self.param_path = param_path.into();
+    }
+
+    pub fn next_level(&mut self, next_level: bool) {
+        self.next_level = next_level;
+    }
+
+    pub fn build(self) -> GetParamterNames {
+        GetParamterNames {
+            param_path: self.param_path,
+            next_level: self.next_level,
+        }
     }
 }

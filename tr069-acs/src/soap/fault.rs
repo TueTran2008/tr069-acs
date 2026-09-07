@@ -39,6 +39,7 @@ impl IntoResponse for Tr069FaultCode {
 pub struct Fault {
     #[serde(rename = "faultcode")]
     fault_code: Option<String>,
+
     #[serde(rename = "faultstring")]
     fault_string: Option<String>,
 
@@ -51,6 +52,7 @@ pub struct Fault {
 pub struct FaultStruct {
     #[serde(rename = "FaultCode")]
     fault_code: Option<Tr069FaultCode>,
+
     #[serde(rename = "FaultString")]
     fault_string: Option<String>,
 }

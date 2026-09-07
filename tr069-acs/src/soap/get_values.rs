@@ -17,6 +17,7 @@ impl GetParamterValues {
         GetParamterValuesBuilder::default()
     }
 }
+
 impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterValues {
     fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W> {
         // --- <cwmp:InformResponse>
@@ -69,6 +70,14 @@ impl GetParamterValuesBuilder {
         self.param_names.push(param.into());
     }
 
+    pub fn param_names<I, S>(mut self, names: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.param_names = names.into_iter().map(|name| name.into()).collect();
+        self
+    }
     pub fn build(self) -> GetParamterValues {
         GetParamterValues {
             param_names: self.param_names,
