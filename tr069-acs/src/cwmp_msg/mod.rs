@@ -125,7 +125,7 @@ pub struct DeviceIDStruct {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct AnySimpleType {
+pub(crate) struct AnySimpleType {
     //The value of an element defined to be of type “anySimpleType” MAY be of any simple data type,
     // including (but not limited to) any of the other types listed in this table.
     // Following the SOAP specification [12], elements specified as being of type “anySimpleType” MUST
@@ -136,37 +136,38 @@ struct AnySimpleType {
     // </ParameterValueStruct>
     // The namespaces xsi and xsd used above are as defined in [12].
     #[serde(rename = "@type")]
-    xsi_type: Option<String>,
+    pub(crate) xsi_type: Option<String>,
 
     #[serde(rename = "$text")]
-    value: Option<String>,
+    pub(crate) value: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ParameterValueStruct {
+pub(crate) struct ParameterValueStruct {
     #[serde(rename = "Name")]
-    name: Option<String>,
+    pub(crate) name: Option<String>,
     //This is the value the Parameter is to be set. The CPE
     //MUST treat string-valued Parameter values as casesensitive.
     #[serde(rename = "Value")]
-    value: Option<AnySimpleType>,
+    pub(crate) value: Option<AnySimpleType>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ParameterList {
+pub(crate) struct ParameterList {
     #[serde(rename = "ParameterValueStruct")]
-    parameter_struct: Vec<ParameterValueStruct>,
+    pub(crate) parameter_struct: Vec<ParameterValueStruct>,
 
     #[serde(rename = "@arrayType")]
-    nb_of_parameter: Option<String>,
+    pub(crate) nb_of_parameter: Option<String>,
 }
+
 #[derive(Deserialize, Debug, Serialize)]
-struct ID {
+pub(crate) struct ID {
     #[serde(rename = "@mustUnderstand")]
-    must_understand: Option<String>,
+    pub(crate) must_understand: Option<String>,
 
     #[serde(rename = "$text")]
-    value: Option<String>,
+    pub(crate) value: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Serialize)]
