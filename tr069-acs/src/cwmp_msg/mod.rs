@@ -1,14 +1,11 @@
 pub mod session;
-
-//use crate::telemetry::{get_subscriber, init_subscriber};
+use crate::soap::fault::{Fault, Tr069FaultCode};
 use axum::extract::{FromRequest, Request};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, NoContent, Response};
 use axum::{async_trait, http};
 use kameo::Reply;
 use quick_xml::events::{BytesDecl, BytesText, Event};
-//use quick_xml::name::{Namespace, NamespaceResolver, ResolveResult};
-use crate::soap::fault::{Fault, Tr069FaultCode};
 use quick_xml::{de::*, Writer};
 use serde::{Deserialize, Serialize};
 use tracing::info_span;

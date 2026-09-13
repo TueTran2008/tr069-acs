@@ -6,6 +6,7 @@ use tokio::runtime::Runtime;
 // use tr
 //use dioxus_logger::tracing::{info, Level};
 
+mod config;
 mod cwmp_msg;
 mod error;
 mod session;
