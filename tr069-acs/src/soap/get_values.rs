@@ -2,26 +2,25 @@ use crate::soap::RpcWrite;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Writer;
 use serde::{Deserialize, Serialize};
-use uuid::Bytes;
 
 //const PARAMETER_NAMES_NAMESPACE: &str = r#"GetParamete"#;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct GetParamterValues {
+pub struct GetParameterValues {
     #[serde(rename = "ParameterNames")]
     param_names: Vec<String>,
 }
 
-impl GetParamterValues {
-    pub fn builder() -> GetParamterValuesBuilder {
-        GetParamterValuesBuilder::default()
+impl GetParameterValues {
+    pub fn builder() -> GetParameterValuesBuilder {
+        GetParameterValuesBuilder::default()
     }
 }
 
-impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterValues {
+impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParameterValues {
     fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W> {
         // --- <cwmp:InformResponse>
-        let get_values = BytesStart::new("cwmp:GetParamterValues");
+        let get_values = BytesStart::new("cwmp:GetParameterValues");
         xml_writer.write_event(Event::Start(get_values)).unwrap();
 
         // --- ParameterPath
@@ -51,7 +50,7 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterValues {
             .unwrap();
 
         xml_writer
-            .write_event(Event::End(BytesEnd::new("cwmp:GetParamterValues")))
+            .write_event(Event::End(BytesEnd::new("cwmp:GetParameterValues")))
             .unwrap();
 
         // Output - Generate Output
@@ -61,11 +60,11 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterValues {
 }
 
 #[derive(Default)]
-pub struct GetParamterValuesBuilder {
+pub struct GetParameterValuesBuilder {
     param_names: Vec<String>,
 }
 
-impl GetParamterValuesBuilder {
+impl GetParameterValuesBuilder {
     pub fn add_param<S: Into<String>>(&mut self, param: S) {
         self.param_names.push(param.into());
     }
@@ -78,8 +77,8 @@ impl GetParamterValuesBuilder {
         self.param_names = names.into_iter().map(|name| name.into()).collect();
         self
     }
-    pub fn build(self) -> GetParamterValues {
-        GetParamterValues {
+    pub fn build(self) -> GetParameterValues {
+        GetParameterValues {
             param_names: self.param_names,
         }
     }
