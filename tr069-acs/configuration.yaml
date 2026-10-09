@@ -4,9 +4,9 @@
 database:
   host: "localhost"
   port: 27017
-  username: "controller"
-  password: "123"
-  database_name: "usp_controller"
+  username: "admin"
+  password: "admin"
+  database_name: "ACS"
 mqtt:
   host: "localhost"
   port: 1883

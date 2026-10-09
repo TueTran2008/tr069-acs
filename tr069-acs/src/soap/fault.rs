@@ -19,7 +19,6 @@ pub enum Tr069FaultCode {
     UploadFailure = 9011,
     FileTransferAuthFailure = 9012,
     UnsupportedProtocol = 9013,
-
     /// Any code not defined by TR-069
     Unknown(u16),
 }

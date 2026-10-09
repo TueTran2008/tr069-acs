@@ -1,22 +1,20 @@
 pub mod session;
 use crate::soap::fault::{Fault, Tr069FaultCode};
+use crate::soap::get_names::GetParamterNames;
+use crate::soap::get_rpc::GetRPCMethods;
+use crate::soap::inform::{Inform, InformResponse};
+use crate::soap::RpcWrite;
 use axum::extract::{FromRequest, Request};
-use axum::http::{HeaderValue, StatusCode};
+use axum::http::HeaderValue;
 use axum::response::{IntoResponse, NoContent, Response};
 use axum::{async_trait, http};
 use kameo::Reply;
 use quick_xml::events::{BytesDecl, BytesText, Event};
 use quick_xml::{de::*, Writer};
 use serde::{Deserialize, Serialize};
-use tracing::info_span;
-use tracing_log::log::info;
-//use std::convert::Infallible;
-use crate::soap::get_names::GetParamterNames;
-use crate::soap::get_rpc::GetRPCMethods;
-use crate::soap::inform::{Inform, InformResponse};
-use crate::soap::RpcWrite;
 use std::io::Cursor;
 use std::panic;
+use tracing_log::log::info;
 
 //pub const ENC_NP: &str = "soap-enc";
 //pub const ENV_NP: &str = "soap-env";

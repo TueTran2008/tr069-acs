@@ -32,6 +32,7 @@ dashmap = "6.2.1"
 kameo = {version = "0.22.1", features = ["console"]}
 config = {version = "0.15.25", features = ["yaml"]}
 mongodb = "3.9.1"
+derive_more = { version = "2", features = ["full"] }
 
 [dev-dependencies]
 reqwest = "0.12.13"

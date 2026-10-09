@@ -1,15 +1,18 @@
-use tracing::field::Empty;
 use tracing_log::log::{self, info};
 
 //pub struct StateIdle;
-//
-use crate::error::Result;
+use crate::session::error::Result;
 use crate::soap::get_rpc::GetRPCMethods;
 use crate::{
     cwmp_msg::{CWMPMsg, Envelope},
-    session::state::client_state::ClientState,
+    //session::state::client_state::ClientState,
     soap::inform::InformResponse,
 };
+
+pub trait ClientState: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn on_enter(self: Box<Self>, session: CWMPStateAction) -> Result<Box<dyn ClientState>>;
+}
 
 pub struct StateIdle; // When recevied Inform message from CWMP Client
 pub struct StateExchangeRpc;
@@ -136,7 +139,7 @@ impl ClientState for StateNoMoreRpc {
         "Exchanging CWMP RPCs"
     }
 
-    fn on_enter(self: Box<Self>, session: CWMPStateAction) -> Result<Box<dyn ClientState>> {
+    fn on_enter(self: Box<Self>, _session: CWMPStateAction) -> Result<Box<dyn ClientState>> {
         Ok(Box::new(StateIdle))
     }
 }
@@ -146,7 +149,7 @@ impl ClientState for StateExchangeRpc {
         "Exchanging CWMP RPCs"
     }
 
-    fn on_enter(self: Box<Self>, session: CWMPStateAction) -> Result<Box<dyn ClientState>> {
+    fn on_enter(self: Box<Self>, _session: CWMPStateAction) -> Result<Box<dyn ClientState>> {
         //if session.list_rpc.is_empty() {
         Ok(Box::new(StateNoMoreRpc))
         //} else {
@@ -160,10 +163,7 @@ impl ClientState for StateIdle {
         "Idle"
     }
 
-    fn on_enter(
-        self: Box<Self>,
-        session: CWMPStateAction,
-    ) -> crate::error::Result<Box<dyn ClientState>> {
+    fn on_enter(self: Box<Self>, _session: CWMPStateAction) -> Result<Box<dyn ClientState>> {
         //let msg_body = InformResponse { max_envelopes: 1 };
         //let res = Envelope::new(
         //    &session.device_id.as_ref(),

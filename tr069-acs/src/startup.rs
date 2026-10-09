@@ -1,11 +1,13 @@
 use crate::{
-    cwmp_msg::{CWMPMsg, Envelope},
+    cwmp_msg::Envelope,
+    model::ModelManager,
     session::{
         consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
         device_actor::DeviceActor,
         device_manager::DeviceSessionManager,
     },
 };
+
 use axum::{extract::State, routing::post};
 use axum::{response::IntoResponse, Router};
 use kameo::actor::ActorRef;
@@ -23,6 +25,8 @@ pub struct AppState {
 
 //#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
+    info!("Start the ModelManager");
+    let mm = ModelManager::new().await.unwrap();
     let state = AppState {
         //app_session: Arc::new(RwLock::new(SessionList::default())),
         device_manager: Arc::new(RwLock::new(DeviceSessionManager::new())),

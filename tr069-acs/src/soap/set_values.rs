@@ -3,7 +3,6 @@ use crate::soap::RpcWrite;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Writer;
 use serde::{Deserialize, Serialize};
-use uuid::Bytes;
 
 const SET_PARAMETER_VALUES: &str = "cwmp:SetParameterValues";
 const PARAMETER_LIST: &str = "ParameterList";

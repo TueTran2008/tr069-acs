@@ -1,5 +1,15 @@
 use config::{Config, ConfigError};
 use serde::Deserialize;
+use std::sync::OnceLock;
+
+pub fn core_config() -> &'static GlobalConfigSetting {
+    static INSTANCE: OnceLock<GlobalConfigSetting> = OnceLock::new();
+
+    INSTANCE.get_or_init(|| {
+        GlobalConfigSetting::get_setting()
+            .unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
+    })
+}
 
 #[derive(Deserialize, Debug)]
 pub struct GlobalConfigSetting {
@@ -23,6 +33,7 @@ pub struct DatabaseSetting {
 *   document about connection string
 *
 * */
+
 impl GlobalConfigSetting {
     //mongodb:.//user:pass@sample.host:port/?Optio
 
@@ -37,9 +48,6 @@ impl GlobalConfigSetting {
         )
     }
 
-    // pub fn get_mqtt_url(&self) -> String {
-    //     format!("mqtt://{}", self.mqtt.host)
-    // }
     pub fn get_setting() -> Result<Self, ConfigError> {
         let setting = Config::builder()
             .add_source(config::File::with_name("configuration.yaml"))

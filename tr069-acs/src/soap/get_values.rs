@@ -54,7 +54,6 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParameterValues {
             .unwrap();
 
         // Output - Generate Output
-        // xml_writer.into_inner().into_inner()
         xml_writer
     }
 }

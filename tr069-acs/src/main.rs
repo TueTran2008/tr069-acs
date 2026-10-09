@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 // Launch axum on the server
-use axum::Router;
 #[cfg(feature = "server")]
 use tokio::runtime::Runtime;
 // use tr
@@ -8,7 +7,8 @@ use tokio::runtime::Runtime;
 
 mod config;
 mod cwmp_msg;
-mod error;
+//mod error;
+mod model;
 mod session;
 mod soap;
 mod startup;
@@ -25,7 +25,7 @@ async fn launch_server(_component: fn() -> Element) {
 
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-    use tracing::{level_filters::LevelFilter, Level};
+    use tracing::level_filters::LevelFilter;
     //use tracing_log::log::LevelFilter;
 
     use crate::telemetry::{get_subscriber, init_subscriber};

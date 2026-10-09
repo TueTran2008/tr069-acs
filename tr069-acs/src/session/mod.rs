@@ -5,6 +5,7 @@ pub mod consts;
 mod cwmp_session;
 pub mod device_actor;
 pub mod device_manager;
+mod error;
 pub mod state;
 use crate::cwmp_msg::{self, CWMPMsg};
 use crate::soap::{get_names::GetParamterNames, inform::InformResponse};
@@ -63,7 +64,7 @@ impl SessionCwmp {
         match self.state {
             // In the idle state, only start the session if it is Inform
             SessionState::Idle => {
-                if let Some(CWMPMsg::Inform(inform)) = cwmp_msg {
+                if let Some(CWMPMsg::Inform(_inform)) = cwmp_msg {
                     self.state = SessionState::SentInformResponse;
                     let msg_body = InformResponse::default();
                     let res = cwmp_msg::CWMPMsg::InformResponse(msg_body);
@@ -109,8 +110,8 @@ pub struct SessionList {
 }
 
 impl SessionList {
-    pub fn insert_sn(mut self, value: String) {
-        let new_device = DeviceIndentify {
+    pub fn insert_sn(self, value: String) {
+        let _new_device = DeviceIndentify {
             serial_number: value,
             product_class: None,
         };
