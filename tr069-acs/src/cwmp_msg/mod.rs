@@ -1,6 +1,6 @@
 pub mod session;
 use crate::soap::fault::{Fault, Tr069FaultCode};
-use crate::soap::get_names::GetParamterNames;
+use crate::soap::get_names::GetParameterNames;
 use crate::soap::get_rpc::GetRPCMethods;
 use crate::soap::inform::{Inform, InformResponse};
 use crate::soap::RpcWrite;
@@ -191,6 +191,13 @@ impl Default for Header {
     }
 }
 
+// use rand::distr::{Alphanumeric, SampleString};
+// use rand::rng;
+
+// fn random_string(len: usize) -> String {
+//     Alphanumeric.sample_string(&mut rng(), len)
+// }
+
 impl Envelope {
     pub fn get_msg_id(&self) -> Option<&String> {
         //if let Some(ref msg_id) = self.header.id.value {
@@ -245,13 +252,14 @@ impl Envelope {
             ])
             .write_inner_content(|xml| {
                 if let Some(ref text) = self.header.as_ref().unwrap().id.value {
-                    let header_random_str = text.as_str();
+                    //let ran
+                    let id_str = text.as_str();
                     let _ = xml
                         .create_element("soap-env:Header")
                         .write_inner_content(|xml| {
                             xml.create_element("cwmp:ID")
                                 .with_attribute(("soap-env:mustUnderstand", "1"))
-                                .write_text_content(BytesText::new(header_random_str))
+                                .write_text_content(BytesText::new(&id_str))
                                 .unwrap();
                             Ok(())
                         });
@@ -263,6 +271,9 @@ impl Envelope {
                                     msg.build_message(xml);
                                 }
                                 CWMPMsg::GetRPCMethods(msg) => {
+                                    msg.build_message(xml);
+                                }
+                                CWMPMsg::GetParameterNames(msg) => {
                                     msg.build_message(xml);
                                 }
                                 CWMPMsg::EmptyRPC => {
@@ -322,7 +333,7 @@ pub enum CWMPMsg {
     GetRPCMethodsResponse,
     SetParameterValuesResponse,
     GetParameterValuesResponse,
-    GetParameterNames(GetParamterNames),
+    GetParameterNames(GetParameterNames),
     GetParameterNamesResponse,
     SetParameterAttributesResponse,
     GetParameterAttributesResponse,

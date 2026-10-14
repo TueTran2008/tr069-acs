@@ -1,14 +1,11 @@
 //use dioxus::prelude::Context;
-use kameo::{
-    message::Message,
-    Actor,
-};
-use tracing_log::log::info;
-
 use crate::{
     cwmp_msg::{CWMPMsg, Envelope},
     session::cwmp_session::{CWMPSession, CWMPStateAction},
 };
+use kameo::{message::Message, Actor};
+use tracing::{info_span, span, Level};
+use tracing_log::log::info;
 
 #[derive(Actor)]
 pub struct DeviceActor {
@@ -46,6 +43,7 @@ impl Message<Envelope> for DeviceActor {
         msg: Envelope,
         _ctx: &mut kameo::message::Context<Self, Self::Reply>,
     ) -> Self::Reply {
+        info_span!("");
         info!("Handle Envelope message {:?}", msg);
         let msg_type = msg.get_msg_type().unwrap();
         match msg_type {

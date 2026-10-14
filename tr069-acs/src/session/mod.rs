@@ -8,7 +8,7 @@ pub mod device_manager;
 mod error;
 pub mod state;
 use crate::cwmp_msg::{self, CWMPMsg};
-use crate::soap::{get_names::GetParamterNames, inform::InformResponse};
+use crate::soap::{get_names::GetParameterNames, inform::InformResponse};
 /*
 * Initialize a session in case there is a new inform
 */
@@ -76,7 +76,7 @@ impl SessionCwmp {
 
             SessionState::SentInformResponse => {
                 if let Some(CWMPMsg::EmptyRPC) = cwmp_msg {
-                    let msg_body = GetParamterNames::new("Device.".to_string(), true);
+                    let msg_body = GetParameterNames::new("Device.".to_string(), true);
                     let res = cwmp_msg::CWMPMsg::GetParameterNames(msg_body);
                     Some(res)
                 } else {

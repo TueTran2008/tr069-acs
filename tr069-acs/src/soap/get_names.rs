@@ -4,7 +4,7 @@ use quick_xml::Writer;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct GetParamterNames {
+pub struct GetParameterNames {
     #[serde(rename = "ParameterPath")]
     param_path: String,
 
@@ -12,7 +12,7 @@ pub struct GetParamterNames {
     next_level: bool,
 }
 
-impl GetParamterNames {
+impl GetParameterNames {
     pub fn new(param_path: String, next_level: bool) -> Self {
         Self {
             param_path,
@@ -20,15 +20,15 @@ impl GetParamterNames {
         }
     }
 
-    pub fn builder() -> GetParamterNamesBuilder {
-        GetParamterNamesBuilder::default()
+    pub fn builder() -> GetParameterNamesBuilder {
+        GetParameterNamesBuilder::default()
     }
 }
 
-impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterNames {
+impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParameterNames {
     fn build_message(&'a self, xml_writer: &'a mut Writer<W>) -> &'a mut Writer<W> {
         // --- <cwmp:InformResponse>
-        let inform_res = BytesStart::new("cwmp:GetParamterNames");
+        let inform_res = BytesStart::new("cwmp:GetParameterNames");
         xml_writer.write_event(Event::Start(inform_res)).unwrap();
 
         // --- ParameterPath
@@ -48,7 +48,9 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterNames {
         let next_level = BytesStart::new("NextLevel");
         xml_writer.write_event(Event::Start(next_level)).unwrap();
         xml_writer
-            .write_event(Event::Text(BytesText::new(&self.next_level.to_string())))
+            .write_event(Event::Text(BytesText::new(
+                &u8::from(self.next_level).to_string(),
+            )))
             .unwrap();
 
         xml_writer
@@ -56,7 +58,7 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterNames {
             .unwrap();
 
         xml_writer
-            .write_event(Event::End(BytesEnd::new("cwmp:GetParamterNames")))
+            .write_event(Event::End(BytesEnd::new("cwmp:GetParameterNames")))
             .unwrap();
 
         // Output - Generate Output
@@ -66,28 +68,30 @@ impl<'a, W: std::io::Write> RpcWrite<'a, W> for GetParamterNames {
 }
 
 #[derive(Default)]
-pub struct GetParamterNamesBuilder {
+pub struct GetParameterNamesBuilder {
     param_path: String,
     next_level: bool,
 }
 
-impl GetParamterNamesBuilder {
+impl GetParameterNamesBuilder {
     pub fn new(param_path: String, next_level: bool) -> Self {
         Self {
             param_path,
             next_level,
         }
     }
-    pub fn param_path<S: Into<String>>(&mut self, param_path: S) {
+    pub fn param_path<S: Into<String>>(mut self, param_path: S) -> Self {
         self.param_path = param_path.into();
+        self
     }
 
-    pub fn next_level(&mut self, next_level: bool) {
+    pub fn next_level(mut self, next_level: bool) -> Self {
         self.next_level = next_level;
+        self
     }
 
-    pub fn build(self) -> GetParamterNames {
-        GetParamterNames {
+    pub fn build(self) -> GetParameterNames {
+        GetParameterNames {
             param_path: self.param_path,
             next_level: self.next_level,
         }

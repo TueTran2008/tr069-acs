@@ -7,12 +7,12 @@ use crate::{
         device_manager::DeviceSessionManager,
     },
 };
-
 use axum::{extract::State, routing::post};
 use axum::{response::IntoResponse, Router};
 use kameo::actor::ActorRef;
 use std::sync::Arc;
 use tokio::{net::TcpListener, sync::RwLock};
+use tower_http::trace::TraceLayer;
 use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
 use tracing_log::log::info;
 use uuid::Uuid;
@@ -26,7 +26,7 @@ pub struct AppState {
 //#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
     info!("Start the ModelManager");
-    let mm = ModelManager::new().await.unwrap();
+    //let mm = ModelManager::new().await.unwrap();
     let state = AppState {
         //app_session: Arc::new(RwLock::new(SessionList::default())),
         device_manager: Arc::new(RwLock::new(DeviceSessionManager::new())),
@@ -41,6 +41,7 @@ pub async fn run(listener: TcpListener) {
     let router = Router::new()
         .route("/", post(xml_request_handler))
         .layer(session_layer)
+        .layer(TraceLayer::new_for_http())
         .with_state(state);
 
     axum::serve(listener, router).await.unwrap();

@@ -750,7 +750,7 @@ util.rs
 15: use std::io::{Cursor, Write};
 16: use std::panic;
 17: 
-18: use crate::cwmp_msg::get_names::GetParamterNames;
+18: use crate::cwmp_msg::get_names::GetParameterNames;
 19: 
 20: //pub const ENC_NP: &str = "soap-enc";
 21: //pub const ENV_NP: &str = "soap-env";
@@ -954,5 +954,3 @@ Here’s a plan to incrementally bring in improvements:
 Would you like a concrete code example for one of these patterns (e.g., Session Factory, Observer for session events), or do you want a step-by-step refactor plan for the most impactful patterns? Let me know your preference!
 
 ---
-
-

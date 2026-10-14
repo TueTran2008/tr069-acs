@@ -33,6 +33,8 @@ kameo = {version = "0.22.1", features = ["console"]}
 config = {version = "0.15.25", features = ["yaml"]}
 mongodb = "3.9.1"
 derive_more = { version = "2", features = ["full"] }
+tower-http = { version = "0.7.1", features = ["full"] }
+rand = {version = "0.9"}
 
 [dev-dependencies]
 reqwest = "0.12.13"

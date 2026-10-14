@@ -2,6 +2,7 @@ use tracing_log::log::{self, info};
 
 //pub struct StateIdle;
 use crate::session::error::Result;
+use crate::soap::get_names::{self, GetParameterNames, GetParameterNamesBuilder};
 use crate::soap::get_rpc::GetRPCMethods;
 use crate::{
     cwmp_msg::{CWMPMsg, Envelope},
@@ -48,7 +49,14 @@ impl CWMPSession {
     }
     fn prepare_default_list(&mut self) {
         let get_rpc = CWMPMsg::GetRPCMethods(GetRPCMethods::new());
-        self.list_rpc.push(get_rpc);
+        let get_names = CWMPMsg::GetParameterNames(
+            GetParameterNamesBuilder::default()
+                .next_level(false)
+                .param_path("Device.")
+                .build(),
+        );
+        //self.list_rpc.push(get_rpc);
+        self.list_rpc.push(get_names);
     }
 
     pub async fn apply_action(&mut self, action: CWMPStateAction) -> Result<Option<Envelope>> {
