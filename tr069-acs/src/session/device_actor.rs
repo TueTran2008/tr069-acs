@@ -73,7 +73,23 @@ impl Message<Envelope> for DeviceActor {
                     .unwrap();
                 return response.unwrap();
             }
-            _ => todo!("Implement other"),
+            CWMPMsg::GetParameterNames(names) => {
+                info!("GPN response {:#?}", names);
+                let response = self
+                    .state
+                    .apply_action(CWMPStateAction::CWMPStateReceiveResponse)
+                    .await
+                    .unwrap();
+                return response.unwrap();
+            }
+            _ => {
+                let response = self
+                    .state
+                    .apply_action(CWMPStateAction::CWMPStateReceiveResponse)
+                    .await
+                    .unwrap();
+                return response.unwrap();
+            }
         }
     }
 }
