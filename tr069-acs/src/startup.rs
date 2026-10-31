@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tokio::{net::TcpListener, sync::RwLock};
 use tower_http::trace::TraceLayer;
 use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
+//use tracing::instrument;
 use tracing_log::log::info;
 use uuid::Uuid;
 // Global variable shared between thread and handler
@@ -48,6 +49,7 @@ pub async fn run(listener: TcpListener) {
 }
 
 #[axum::debug_handler]
+//#[instrument]
 pub async fn xml_request_handler(
     State(state): State<AppState>,
     session: Session,
