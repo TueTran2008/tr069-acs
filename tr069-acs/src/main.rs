@@ -1,12 +1,16 @@
 use dioxus::prelude::*;
 // Launch axum on the server
-use axum::Router;
 #[cfg(feature = "server")]
 use tokio::runtime::Runtime;
 // use tr
+//use dioxus_logger::tracing::{info, Level};
 
+mod config;
 mod cwmp_msg;
-mod soap_xml;
+//mod error;
+mod model;
+mod session;
+mod soap;
 mod startup;
 mod telemetry;
 // mod tower_test;
@@ -16,12 +20,19 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 const HEADER_SVG: Asset = asset!("/assets/header.svg");
 
 #[cfg(feature = "server")]
-async fn launch_server(component: fn() -> Element) {
+async fn launch_server(_component: fn() -> Element) {
     // Connect dioxus's logging infrastructure
 
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-    dioxus::logger::initialize_default();
+    use tracing::level_filters::LevelFilter;
+    //use tracing_log::log::LevelFilter;
+
+    use crate::telemetry::{get_subscriber, init_subscriber};
+
+    //dioxus::logger::init(Level::TRACE).unwrap();
+    let test_sub = get_subscriber("tr069-server-test".into(), LevelFilter::TRACE.into());
+    init_subscriber(test_sub);
     let ip =
         dioxus::cli_config::server_ip().unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
     let port = dioxus::cli_config::server_port().unwrap_or(8081);

@@ -1,25 +1,91 @@
-use crate::cwmp_msg::{self};
-use axum::Router;
-use axum_xml_up::Xml;
-use tokio::net::TcpListener;
+use crate::{
+    cwmp_msg::Envelope,
+    model::ModelManager,
+    session::{
+        consts::{SESSION_EXPIRE_TIME, SESSION_KEY},
+        device_actor::DeviceActor,
+        device_manager::DeviceSessionManager,
+    },
+};
+use axum::{extract::State, routing::post};
+use axum::{response::IntoResponse, Router};
+use kameo::actor::ActorRef;
+use std::sync::Arc;
+use tokio::{net::TcpListener, sync::RwLock};
+use tower_http::trace::TraceLayer;
+use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
+//use tracing::instrument;
+use tracing_log::log::info;
+use uuid::Uuid;
+// Global variable shared between thread and handler
+#[derive(Clone)]
+pub struct AppState {
+    //app_session: Arc<RwLock<SessionList>>,
+    device_manager: Arc<RwLock<DeviceSessionManager>>,
+}
 
-#[cfg(feature = "server")]
+//#[cfg(feature = "server")]
 pub async fn run(listener: TcpListener) {
-    // dioxus::logger::initialize_default();
+    info!("Start the ModelManager");
+    //let mm = ModelManager::new().await.unwrap();
+    let state = AppState {
+        //app_session: Arc::new(RwLock::new(SessionList::default())),
+        device_manager: Arc::new(RwLock::new(DeviceSessionManager::new())),
+    };
+    let session_store = MemoryStore::default();
+    let session_expire = Expiry::OnInactivity(Duration::seconds(SESSION_EXPIRE_TIME as i64));
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_secure(false)
+        .with_expiry(session_expire)
+        .with_name(SESSION_KEY);
 
-    use axum::{middleware, routing::post};
+    let router = Router::new()
+        .route("/", post(xml_request_handler))
+        .layer(session_layer)
+        .layer(TraceLayer::new_for_http())
+        .with_state(state);
 
-    // use crate::cwmp_msg::session::{cwmp_session_handle, print_request_response};
-    // let server_addr = SocketAddr::new(listener.local_addr());
-    // tracing::info!("{server_addr}");
-    //
-    // //Build a custom router
-    let router = Router::new().route("/", post(xml_request_handler));
-    // .layer(middleware::from_fn(print_request_response));
     axum::serve(listener, router).await.unwrap();
 }
 
 #[axum::debug_handler]
-pub async fn xml_request_handler(Xml(payload): Xml<cwmp_msg::Envelope>) {
-    tracing::info!("Get xml body: {:?}", payload);
+//#[instrument]
+pub async fn xml_request_handler(
+    State(state): State<AppState>,
+    session: Session,
+    payload: Envelope,
+) -> impl IntoResponse {
+    let session_id = session.get::<String>("session_id").await;
+    let device: ActorRef<DeviceActor>;
+    match session_id {
+        Ok(session_id) => {
+            if let Some(session_id) = session_id {
+                //todo!("Implement when session ID available");
+                device = state.device_manager.read().await.get(&session_id).unwrap();
+            } else {
+                let new_session_id = Uuid::new_v4().to_string();
+                let _get_id = session.insert("session_id", &new_session_id).await;
+                {
+                    let mut manager = state.device_manager.write().await;
+                    manager.insert_session(new_session_id.clone());
+                }
+                tracing::debug!("Generate new session_id {:?}", new_session_id.to_string());
+                device = state
+                    .device_manager
+                    .read()
+                    .await
+                    .get(&new_session_id)
+                    .unwrap();
+            }
+        }
+
+        Err(_e) => {
+            todo!("Implement when cannot get the session with the Json and Store errors");
+        }
+    }
+    info!("Before asking to Kameo {:?}", payload);
+    let xml = device.ask(payload).await.unwrap();
+    info!("After asking to Kameo");
+    info!("{:?}", xml);
+    xml
 }
