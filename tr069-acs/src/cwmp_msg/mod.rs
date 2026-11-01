@@ -1,14 +1,12 @@
-pub mod consts;
 pub mod session;
 
-use crate::{
-    cwmp_msg::consts::{SOAP_CWMP_NP, SOAP_ENC_NP, SOAP_XSD_NP, SOAP_XSI_NP},
-    telemetry::{get_subscriber, init_subscriber},
-};
-use std::{collections::HashMap, sync::OnceLock};
-use tracing::level_filters::LevelFilter;
-// use yaserde::{YaDeserialize, YaSerialize};
-use yaserde_derive::{YaDeserialize, YaSerialize};
+use crate::telemetry::{get_subscriber, init_subscriber};
+use quick_xml::de::*;
+use quick_xml::events::Event;
+use quick_xml::reader::Reader;
+use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
+use tracing::{level_filters::LevelFilter, trace};
 
 #[derive(Debug)]
 pub enum CpeRPC {
@@ -37,69 +35,69 @@ pub enum CpeRPC {
     GetAllQueuedEventsResponse,
 }
 
-// #[derive(YaSerialize, YaDeserialize)]
-// enum EventCode {
-//     Event0BootStrap,
-//     Event1Boot,
-//     Event2Periodic,
-//     Event3Schedule,
-//     Event4ValueChange,
-//     Event5Kicked,
-//     Event6ConnectionRequest,
-//     Event7TransferComplete,
-//     Event8DiagnosticComplete,
-//     Event9RequestDownload,
-//     Event10AutonomousTransferComplete,
-//     Event11DUStateChangeComplete,
-//     Event12AutonomousDUStateChangeComplete,
-//     Event13Wakeup,
-//     Event14Heartbeat,
-//     EventMReboot,
-//     EventMScheduleInform,
-//     EventMDownload,
-//     EventMScheduleDownload,
-//     EventMUpload,
-//     EventMChangeDUState,
-//     EventMVendorMethod,
-//     EventMVendorEvent,
-// }
+#[derive(Debug, Deserialize)]
+enum EventCode {
+    Event0BootStrap,
+    Event1Boot,
+    Event2Periodic,
+    Event3Schedule,
+    Event4ValueChange,
+    Event5Kicked,
+    Event6ConnectionRequest,
+    Event7TransferComplete,
+    Event8DiagnosticComplete,
+    Event9RequestDownload,
+    Event10AutonomousTransferComplete,
+    Event11DUStateChangeComplete,
+    Event12AutonomousDUStateChangeComplete,
+    Event13Wakeup,
+    Event14Heartbeat,
+    EventMReboot,
+    EventMScheduleInform,
+    EventMDownload,
+    EventMScheduleDownload,
+    EventMUpload,
+    EventMChangeDUState,
+    EventMVendorMethod,
+    EventMVendorEvent,
+}
 
-#[derive(Debug, YaSerialize, YaDeserialize)]
+#[derive(Debug, Deserialize)]
 struct CommandKey {
     value: Option<String>,
 }
 
-#[derive(Debug, YaSerialize, YaDeserialize, Default)]
+#[derive(Debug, Deserialize)]
 struct EventStruct {
-    // #[yaserde(rename = "@arrayType")]
+    // #[serde(rename = "@arrayType")]
     // nb_of_event: Option<String>,
-    #[yaserde(rename = "EventCode")]
+    #[serde(rename = "EventCode")]
     event_code: Option<String>,
-    #[yaserde(rename = "CommandKey")]
+    #[serde(rename = "CommandKey")]
     command_key: Option<String>,
 }
 
-#[derive(Debug, YaSerialize, YaDeserialize, Default)]
+#[derive(Debug, Deserialize, Default)]
 struct EventList {
-    #[yaserde(rename = "@arrayType")]
+    #[serde(rename = "@arrayType")]
     nb_of_event: Option<String>,
 
-    #[yaserde(rename = "EventStruct")]
+    #[serde(rename = "EventStruct")]
     event_struct: Vec<EventStruct>,
 }
 
-#[derive(Debug, Default, YaSerialize, YaDeserialize)]
+#[derive(Debug, Default, Deserialize)]
 struct DeviceIDStruct {
-    #[yaserde(rename = "Manufacturer")]
+    #[serde(rename = "Manufacturer")]
     manufacturer: Option<String>,
 
-    #[yaserde(rename = "OUI")]
+    #[serde(rename = "OUI")]
     oui: Option<String>,
 
-    #[yaserde(rename = "ProductClass")]
+    #[serde(rename = "ProductClass")]
     product_class: Option<String>,
 
-    #[yaserde(rename = "SerialNumber")]
+    #[serde(rename = "SerialNumber")]
     serial_number: Option<String>,
 }
 
@@ -112,82 +110,69 @@ struct DeviceIDStruct {
 //  <Value xsi:type="xsd:string">code12345</Value>
 // </ParameterValueStruct>
 // The namespaces xsi and xsd used above are as defined in [12].
-#[derive(Debug, YaSerialize, YaDeserialize, Default)]
+#[derive(Debug, Deserialize)]
 struct AnySimpleType {
-    #[yaserde(rename = "@type")]
+    #[serde(rename = "@type")]
     xsi_type: Option<String>,
 
-    #[yaserde(rename = "$text")]
+    #[serde(rename = "$text")]
     value: Option<String>,
 }
 
-#[derive(Debug, YaSerialize, YaDeserialize, Default)]
+#[derive(Debug, Deserialize)]
 struct ParameterValueStruct {
-    #[yaserde(rename = "Name")]
+    #[serde(rename = "Name")]
     name: Option<String>,
     //This is the value the Parameter is to be set. The CPE
     //MUST treat string-valued Parameter values as casesensitive.
-    #[yaserde(rename = "Value")]
+    #[serde(rename = "Value")]
     value: Option<AnySimpleType>,
 }
 
-#[derive(Debug, YaSerialize, YaDeserialize, Default)]
+#[derive(Debug, Deserialize)]
 struct ParameterList {
-    #[yaserde(rename = "ParameterValueStruct")]
+    #[serde(rename = "ParameterValueStruct")]
     parameter_struct: Vec<ParameterValueStruct>,
 
-    #[yaserde(rename = "@arrayType")]
+    #[serde(rename = "@arrayType")]
     nb_of_parameter: Option<String>,
 }
 
-#[derive(Debug, YaSerialize, YaDeserialize, Default)]
+#[derive(Debug, Default, Deserialize)]
 struct Inform {
-    #[yaserde(rename = "DeviceId")]
+    #[serde(rename = "DeviceId")]
     device_id: DeviceIDStruct,
 
-    #[yaserde(rename = "Event")]
+    #[serde(rename = "Event")]
     event: EventList,
 
-    #[yaserde(rename = "MaxEnvelopes")]
+    #[serde(rename = "MaxEnvelopes")]
     max_envelopes: u32,
 
-    #[yaserde(rename = "CurrentTime")]
+    #[serde(rename = "CurrentTime")]
     current_time: String,
 
-    #[yaserde(rename = "RetryCount")]
+    #[serde(rename = "RetryCount")]
     retry_count: u32,
 
-    #[yaserde(rename = "ParameterList")]
+    #[serde(rename = "ParameterList")]
     parameter_list: Vec<ParameterList>,
 }
 
-#[derive(Debug, YaSerialize, YaDeserialize)]
-pub struct InformResponse {
-    #[yaserde(rename = "MaxEnvelopes")]
-    max_envelopes: u32,
-}
-
-#[derive(YaSerialize, Debug, YaDeserialize)]
-#[yaserde(rename = "cwmp:ID")]
+#[derive(Deserialize, Debug)]
 struct ID {
-    #[yaserde(rename = "@mustUnderstand")]
+    #[serde(rename = "@mustUnderstand")]
     must_understand: Option<String>,
-    #[yaserde(rename = "$text")]
-    text: Option<String>,
 }
-
-#[derive(YaSerialize, Debug, YaDeserialize)]
+#[derive(Deserialize, Debug)]
 struct Header {
-    #[yaserde(rename = "ID")]
+    #[serde(rename = "ID")]
     id: ID,
 }
 
-#[derive(YaSerialize, Default, YaDeserialize, Debug)]
-pub enum CWMPMsg {
-    #[default]
-    DefaultMsg,
+#[derive(Deserialize, Debug)]
+enum CWMPMsg {
     Inform(Inform),
-    InformResponse(InformResponse),
     GetRPCMethodsResponse,
     SetParameterValuesResponse,
     GetParameterValuesResponse,
@@ -212,77 +197,39 @@ pub enum CWMPMsg {
     GetAllQueuedEventsResponse,
 }
 
-#[derive(YaSerialize, Debug, YaDeserialize)]
+#[derive(Deserialize, Debug)]
 struct Body {
-    #[yaserde(rename = "$value")]
+    #[serde(rename = "$value")]
     msg_type: CWMPMsg,
 }
 
-#[derive(YaSerialize, Debug, YaDeserialize)]
-#[yaserde(rename = "soap-env:Envelope")]
+#[derive(Deserialize, Debug)]
+#[serde(rename = "Envelope")]
 pub struct Envelope {
-    #[yaserde(rename = "@xmlns:soap-enc")]
-    soap_enc: Option<String>,
-
-    #[yaserde[rename = "@xmlns:soap-env"]]
-    soap_env: Option<String>,
-
-    #[yaserde[rename = "@xmlns:xsd"]]
-    xsd: Option<String>,
-
-    #[yaserde(rename = "@xmlns:xsi")]
-    xsi: Option<String>,
-
-    #[yaserde(rename = "@xmlns:cwmp")]
+    #[serde(rename = "@xmlns:cwmp")]
     cwmp: Option<String>,
 
-    #[yaserde(rename = "Header")]
-    header: Option<Header>,
+    #[serde(rename = "@xmlns:soap-enc")]
+    soap_enc: Option<String>,
 
-    #[yaserde(rename = "Body")]
-    body: Option<Body>,
-    // #[yaserde(flatten)]
-    // pub attrs: std::collections::HashMap<String, String>,
-}
+    #[serde(rename = "@xmlns:xsi")]
+    xsi: Option<String>,
 
-impl Body {
-    pub fn new(msg_body: CWMPMsg) -> Self {
-        Body { msg_type: msg_body }
-    }
+    #[serde[rename = "@xmlns:xsd"]]
+    xsd: Option<String>,
+
+    #[serde[rename = "@xmlns:soap-env"]]
+    soap_env: Option<String>,
+
+    #[serde(rename = "Header")]
+    header: Header,
+
+    #[serde(rename = "Body")]
+    body: Body,
 }
-impl Default for Header {
-    fn default() -> Self {
-        let default_id = ID {
-            must_understand: Some(String::from("1")),
-            text: None,
-        };
-        Header { id: default_id }
-    }
-}
-// impl Envelope {
-//     pub fn get_rpc_type(self) -> CWMPMsg {
-//         self.body.msg_type
-//     }
-// }
 
 impl Envelope {
-    pub fn new(msg_body: CWMPMsg) -> Self {
-        Self {
-            cwmp: Some(String::from(SOAP_CWMP_NP)),
-            soap_enc: Some(String::from(SOAP_ENC_NP)),
-            xsi: Some(String::from(SOAP_ENC_NP)),
-            xsd: Some(String::from(SOAP_XSD_NP)),
-            soap_env: Some(String::from(SOAP_XSI_NP)),
-            header: Some(Header::default()),
-            body: Some(Body { msg_type: msg_body }),
-            // attrs: HashMap::new(),
-        }
-    }
-}
-impl Default for InformResponse {
-    fn default() -> Self {
-        Self { max_envelopes: 1 }
-    }
+    pub fn get_rpc_type(&self) {}
 }
 
 static TRACING: OnceLock<()> = OnceLock::new();
@@ -353,7 +300,7 @@ mod tests {
                                     </soap-env:Envelope>
         "#;
 
-        let soap_env: Envelope = yaserde::de::from_str(xml).unwrap();
-        // trace!("soap evelope test {:?}", soap_env);
+        let soap_env: Envelope = quick_xml::de::from_str(xml).unwrap();
+        trace!("soap evelope test {:?}", soap_env);
     }
 }
