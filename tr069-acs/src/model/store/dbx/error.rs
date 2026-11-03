@@ -1,21 +1,27 @@
 use derive_more::From;
-use serde::Serialize;
-//use serde_with::{serde_as, DisplayFromStr};
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-//#[serde_as]
-#[derive(Debug, Serialize, From)]
+#[serde_as]
+#[derive(Debug, From, Serialize)]
 pub enum Error {
-    // TxnCantCommitNoOpenTxn,
-    // CannotBeginTxnWithTxnFalse,
-    // CannotCommitTxnWithTxnFalse,
-    // NoTxn,
+    TxnCantCommitNoOpenTxn,
+    CannotBeginTxnWithTxnFalse,
+    CannotCommitTxnWithTxnFalse,
+    NoTxn,
     // // -- Externals
-    // #[from]
-    // Sqlx(#[serde_as(as = "DisplayFromStr")] sqlx::Error),
+    #[from]
+    //serde_as It tells Serde:Instead of serializing this field directly, convert it into a string using its Display implementation.
+    Sqlx(#[serde_as(as = "DisplayFromStr")] sqlx::Error),
 }
 
+//impl From<sqlx::Error> for Error {
+//    fn from(error: sqlx::Error) -> Self {
+//        Self::Sqlx(error)
+//    }
+//}
 // region:    --- Error Boilerplate
 
 impl core::fmt::Display for Error {

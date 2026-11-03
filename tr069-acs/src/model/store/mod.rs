@@ -2,35 +2,22 @@
 
 pub(in crate::model) mod dbx;
 use crate::config::core_config;
-use mongodb::{
-    self,
-    bson::doc,
-    options::{ClientOptions, ServerApi, ServerApiVersion},
-    Client, Database,
-};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tracing::info;
 
 // endregion: --- Modules
 
-pub type Db = Database;
+pub type Db = Pool<Postgres>;
 
-pub async fn new_db_pool() -> mongodb::error::Result<Database> {
+pub async fn new_db_pool() -> sqlx::Result<Db> {
     // * See NOTE 1) below
-    // Replace the placeholder with your Atlas connection string
-    let uri = core_config().get_database_connect_string();
-    let mut client_options = ClientOptions::parse(uri).await?;
-    // Set the server_api field of the client_options object to Stable API version 1
-    let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
-    client_options.server_api = Some(server_api);
-    // Create a new client and connect to the server
-    let client = Client::with_options(client_options)?;
-    // Send a ping to confirm a successful connection
-    client
-        .database("admin")
-        .run_command(doc! { "ping": 1 })
-        .await?;
-    info!("Pinged your deployment. You successfully connected to MongoDB!");
-    Ok(client.database("admin"))
+    info!("Init Data base with Postgres");
+    let max_connections = if cfg!(test) { 1 } else { 5 };
+
+    PgPoolOptions::new()
+        .max_connections(max_connections)
+        .connect(&core_config().get_database_connect_string())
+        .await
 }
 
 // NOTE 1) This is not an ideal situation; however, with sqlx 0.7.1, when executing `cargo test`, some tests that use sqlx fail at a
