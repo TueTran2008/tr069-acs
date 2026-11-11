@@ -1,5 +1,5 @@
 use derive_more::From;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 
 pub type Result<T> = core::result::Result<T, Error>;

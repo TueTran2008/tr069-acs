@@ -9,7 +9,7 @@ pub use crud_fns::*;
 pub use utils::*;
 
 use modql::SIden;
-use sea_query::{Iden, IntoIden, TableRef};
+use sea_query::{Iden, IntoIden, TableName, TableRef};
 
 // endregion: --- Modules
 
@@ -45,11 +45,26 @@ pub enum TimestampIden {
 ///
 /// Note: This trait should not be confused with the BaseCrudBmc trait, which provides
 ///       common default CRUD BMC functions for a given Bmc/Entity.
+/// For example, to generate:
+/// SELECT * FROM public.devices;
+///
+///
+/// You can construct it as:
+/// use sea_query::{DynIden, IntoIden, SIden, TableName, TableRef};
+///
+/// fn table_ref() -> TableRef {
+///     TableRef::Table(
+///         Some(TableName::new("public")),
+///         SIden(Self::TABLE).into_iden(),
+///     )
+/// }
 pub trait DbBmc {
+    //Every type implementing DbBmc must define TABLE.
     const TABLE: &'static str;
 
     fn table_ref() -> TableRef {
-        TableRef::Table(SIden(Self::TABLE).into_iden())
+        let table_name = TableName(None, SIden(Self::TABLE).into_iden());
+        TableRef::Table(table_name, None)
     }
 
     /// Specifies that the table for this Bmc has timestamps (cid, ctime, mid, mtime) columns.

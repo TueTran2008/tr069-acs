@@ -5,13 +5,14 @@ use crate::model::base::{
 };
 use crate::model::ModelManager;
 use crate::model::{Error, Result};
-use modql::field::{HasFields, HasSeaFields};
+use modql::field::HasSeaFields;
 use modql::filter::{FilterGroups, ListOptions};
-use sea_query::{Condition, Expr, PostgresQueryBuilder, Query};
-use sea_query_binder::SqlxBinder;
+use sea_query::{Condition, Expr, ExprTrait, PostgresQueryBuilder, Query};
+use sea_query_sqlx::SqlxBinder;
 use sqlx::postgres::PgRow;
-use sqlx::FromRow;
 use sqlx::Row;
+use sqlx::{AssertSqlSafe, FromRow};
+use tracing::debug;
 
 pub async fn create<MC, E>(ctx: &Ctx, mm: &ModelManager, data: E) -> Result<i64>
 where
@@ -35,7 +36,10 @@ where
 
     // -- Exec query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(&sql, values);
+    debug!("sqlx {:?} values {:?}", sql, values);
+    let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(AssertSqlSafe(sql), values);
+    //sqlx::query_as_with(sql, arguments)_
+    //let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(&sql, values);
     // NOTE: For now, we will use the _txn for all create.
     //       We could have a with_txn as function argument if perf is an issue (it should not be)
     let (id,) = mm.dbx().fetch_one(sqlx_query).await?;
@@ -46,7 +50,7 @@ where
 pub async fn create_many<MC, E>(ctx: &Ctx, mm: &ModelManager, data: Vec<E>) -> Result<Vec<i64>>
 where
     MC: DbBmc,
-    E: HasFields,
+    E: HasSeaFields,
 {
     let user_id = ctx.user_id();
     let mut ids = Vec::with_capacity(data.len());
@@ -70,7 +74,7 @@ where
 
     // Execute query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(&sql, values);
+    let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(AssertSqlSafe(sql), values);
 
     let rows = mm.dbx().fetch_all(sqlx_query).await?;
 
@@ -86,9 +90,11 @@ pub async fn get<MC, E>(_ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<E>
 where
     MC: DbBmc,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
-    E: HasFields,
+    E: HasSeaFields,
 {
     // -- Build query
+    //
+
     let mut query = Query::select();
     query
         .from(MC::table_ref())
@@ -97,7 +103,7 @@ where
 
     // -- Exec query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_as_with::<_, E, _>(&sql, values);
+    let sqlx_query = sqlx::query_as_with::<_, E, _>(AssertSqlSafe(sql), values);
     let entity = mm
         .dbx()
         .fetch_optional(sqlx_query)
@@ -120,7 +126,7 @@ where
     MC: DbBmc,
     F: Into<FilterGroups>,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
-    E: HasFields,
+    E: HasSeaFields,
 {
     let list_options = match list_options {
         Some(mut list_options) => {
@@ -156,7 +162,7 @@ where
     MC: DbBmc,
     F: Into<FilterGroups>,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
-    E: HasFields,
+    E: HasSeaFields,
 {
     // -- Build the query
     let mut query = Query::select();
@@ -175,7 +181,7 @@ where
     // -- Execute the query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
 
-    let sqlx_query = sqlx::query_as_with::<_, E, _>(&sql, values);
+    let sqlx_query = sqlx::query_as_with::<_, E, _>(AssertSqlSafe(sql), values);
     let entities = mm.dbx().fetch_all(sqlx_query).await?;
 
     Ok(entities)
@@ -202,7 +208,7 @@ where
 
     let query_str = query.to_string(PostgresQueryBuilder);
 
-    let result = sqlx::query(&query_str)
+    let result = sqlx::query(AssertSqlSafe(query_str))
         .fetch_one(db)
         .await
         .map_err(|_| Error::CountFail)?;
@@ -215,7 +221,7 @@ where
 pub async fn update<MC, E>(ctx: &Ctx, mm: &ModelManager, id: i64, data: E) -> Result<()>
 where
     MC: DbBmc,
-    E: HasFields,
+    E: HasSeaFields,
 {
     // -- Prep Fields
     let mut fields = data.not_none_sea_fields();
@@ -231,7 +237,7 @@ where
 
     // -- Execute query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_with(&sql, values);
+    let sqlx_query = sqlx::query_with(AssertSqlSafe(sql), values);
     let count = mm.dbx().execute(sqlx_query).await?;
 
     // -- Check result
@@ -257,7 +263,7 @@ where
 
     // -- Execute query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_with(&sql, values);
+    let sqlx_query = sqlx::query_with(AssertSqlSafe(sql), values);
     let count = mm.dbx().execute(sqlx_query).await?;
 
     // -- Check result
@@ -287,7 +293,7 @@ where
 
     // -- Execute query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_with(&sql, values);
+    let sqlx_query = sqlx::query_with(AssertSqlSafe(sql), values);
     let result = mm.dbx().execute(sqlx_query).await?;
 
     // -- Check result
