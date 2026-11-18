@@ -7,22 +7,22 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub(crate) struct Inform {
     #[serde(rename = "DeviceId")]
-    device_id: DeviceIDStruct,
+    pub device_id: DeviceIDStruct,
 
     #[serde(rename = "Event")]
-    event: EventList,
+    pub event: EventList,
 
     #[serde(rename = "MaxEnvelopes")]
-    max_envelopes: u32,
+    pub max_envelopes: u32,
 
     #[serde(rename = "CurrentTime")]
-    current_time: String,
+    pub current_time: String,
 
     #[serde(rename = "RetryCount")]
-    retry_count: u32,
+    pub retry_count: u32,
 
     #[serde(rename = "ParameterList")]
-    parameter_list: Vec<ParameterList>,
+    pub parameter_list: Vec<ParameterList>,
 }
 
 impl Inform {
@@ -30,6 +30,30 @@ impl Inform {
     pub fn get_sn(&self) -> Option<&String> {
         if let Some(ref sn) = self.device_id.serial_number {
             Some(sn)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_oui(&self) -> Option<&String> {
+        if let Some(ref oui) = self.device_id.oui {
+            Some(oui)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_product_class(&self) -> Option<&String> {
+        if let Some(ref pd) = self.device_id.product_class {
+            Some(pd)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_manufacture(&self) -> Option<&String> {
+        if let Some(ref manufacture) = self.device_id.manufacturer {
+            Some(manufacture)
         } else {
             None
         }

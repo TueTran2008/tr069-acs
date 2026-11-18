@@ -24,6 +24,7 @@ mod base;
 mod error;
 mod store;
 
+pub mod device;
 // pub mod agent;
 // pub mod conv;
 // pub mod conv_msg;
@@ -36,6 +37,7 @@ pub use self::error::{Error, Result};
 use crate::model::store::dbx::Dbx;
 
 use crate::model::store::new_db_pool;
+use tracing::info;
 
 // endregion: --- Modules
 //
@@ -52,6 +54,7 @@ impl ModelManager {
             .await
             .map_err(|ex| Error::CantCreateModelManagerProvider(ex.to_string()))?;
         let dbx = Dbx::new(db_pool, false)?;
+        info!("The ModelManager is ready");
         Ok(ModelManager { dbx })
     }
 

@@ -1,8 +1,8 @@
 use crate::model::base::{CommonIden, DbBmc, TimestampIden};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use modql::field::{SeaField, SeaFields};
-use sea_query::IntoIden;
-
+use sea_query::value::Value;
+use sea_query::{Expr, IntoIden, ValueType};
 /// This method must be called when a model controller intends to create its entity.
 pub fn prep_fields_for_create<MC>(fields: &mut SeaFields, user_id: i64)
 where
@@ -29,18 +29,20 @@ where
 /// Update the timestamps info for create
 /// (e.g., cid, ctime, and mid, mtime will be updated with the same values)
 fn add_timestamps_for_create(fields: &mut SeaFields, user_id: i64) {
-    let now = Utc::now();
+    let datetime = Utc::now();
+    let now = Value::ChronoDateTimeUtc(Some(datetime));
     fields.push(SeaField::new(TimestampIden::Cid, user_id));
-    fields.push(SeaField::new(TimestampIden::Ctime, now));
+    fields.push(SeaField::new(TimestampIden::Ctime, now.clone()));
 
     fields.push(SeaField::new(TimestampIden::Mid, user_id));
-    fields.push(SeaField::new(TimestampIden::Mtime, now));
+    fields.push(SeaField::new(TimestampIden::Mtime, now.clone()));
 }
 
 /// Update the timestamps info only for update.
 /// (.e.g., only mid, mtime will be udpated)
 fn add_timestamps_for_update(fields: &mut SeaFields, user_id: i64) {
-    let now = Utc::now();
+    let datetime = Utc::now();
+    let now = Value::ChronoDateTimeUtc(Some(datetime));
     fields.push(SeaField::new(TimestampIden::Mid, user_id));
     fields.push(SeaField::new(TimestampIden::Mtime, now));
 }

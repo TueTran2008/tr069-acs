@@ -1,9 +1,7 @@
 use tracing_log::log::{self, info};
 
-//pub struct StateIdle;
 use crate::session::error::Result;
-use crate::soap::get_names::{self, GetParameterNames, GetParameterNamesBuilder};
-use crate::soap::get_rpc::GetRPCMethods;
+use crate::soap::get_names::GetParameterNamesBuilder;
 use crate::{
     cwmp_msg::{CWMPMsg, Envelope},
     //session::state::client_state::ClientState,
@@ -28,7 +26,7 @@ pub enum CWMPStateAction {
 }
 //#[derive(Eq, Hash, PartialEq)]
 pub struct CWMPSession {
-    response_envelope: Option<Envelope>,
+    //response_envelope: Option<Envelope>,
     msg_id: Option<String>,
     device_id: String,
     list_rpc: Vec<CWMPMsg>,
@@ -38,7 +36,7 @@ pub struct CWMPSession {
 impl CWMPSession {
     pub fn new(device_id: String) -> Self {
         let mut cwmp_session = Self {
-            response_envelope: None,
+            //response_envelope: None,
             msg_id: None,
             device_id,
             list_rpc: Vec::new(),
@@ -47,8 +45,9 @@ impl CWMPSession {
         cwmp_session.prepare_default_list();
         cwmp_session
     }
+
     fn prepare_default_list(&mut self) {
-        let get_rpc = CWMPMsg::GetRPCMethods(GetRPCMethods::new());
+        //let get_rpc = CWMPMsg::GetRPCMethods(GetRPCMethods::new());
         let get_names = CWMPMsg::GetParameterNames(
             GetParameterNamesBuilder::default()
                 .next_level(false)
@@ -67,8 +66,8 @@ impl CWMPSession {
              * Parse DeviceId
              * Update Last Inform Time
              * Update IP
-             * Upddate Software Version
-             * Upddate Serial Number
+             * Update Software Version
+             * Update Serial Number
              * Saved Event list
              * Detdermine why the device connected
              * */
@@ -125,9 +124,9 @@ impl CWMPSession {
         Ok(())
     }
 
-    pub fn set_response_rpc(&mut self, envelope: Envelope) {
-        self.response_envelope = Some(envelope);
-    }
+    //pub fn set_response_rpc(&mut self, envelope: Envelope) {
+    //    self.response_envelope = Some(envelope);
+    //}
 
     pub fn get_device_id(&self) -> &String {
         &self.device_id

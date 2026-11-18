@@ -21,6 +21,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AppState {
     //app_session: Arc<RwLock<SessionList>>,
+    //mm: ModelManager,
     device_manager: Arc<RwLock<DeviceSessionManager>>,
 }
 
@@ -30,7 +31,7 @@ pub async fn run(listener: TcpListener) {
     //let mm = ModelManager::new().await.unwrap();
     let state = AppState {
         //app_session: Arc::new(RwLock::new(SessionList::default())),
-        device_manager: Arc::new(RwLock::new(DeviceSessionManager::new())),
+        device_manager: Arc::new(RwLock::new(DeviceSessionManager::new().await)),
     };
     let session_store = MemoryStore::default();
     let session_expire = Expiry::OnInactivity(Duration::seconds(SESSION_EXPIRE_TIME as i64));
@@ -83,9 +84,7 @@ pub async fn xml_request_handler(
             todo!("Implement when cannot get the session with the Json and Store errors");
         }
     }
-    info!("Before asking to Kameo {:?}", payload);
     let xml = device.ask(payload).await.unwrap();
-    info!("After asking to Kameo");
     info!("{:?}", xml);
     xml
 }

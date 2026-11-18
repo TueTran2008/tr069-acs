@@ -39,7 +39,7 @@ impl GlobalConfigSetting {
 
     pub fn get_database_connect_string(&self) -> String {
         format!(
-            "mongodb://{}:{}@{}:{}/{}",
+            "postgres://{}:{}@{}:{}/{}",
             self.database.username,
             self.database.password,
             self.database.host,

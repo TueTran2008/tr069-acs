@@ -3,10 +3,10 @@
 
 database:
   host: "localhost"
-  port: 27017
-  username: "admin"
-  password: "admin"
-  database_name: "ACS"
+  port: 5432
+  username: "postgres"
+  password: "password"
+  database_name: "acs"
 mqtt:
   host: "localhost"
   port: 1883

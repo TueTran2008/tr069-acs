@@ -107,13 +107,13 @@ pub struct EventList {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct DeviceIDStruct {
     #[serde(rename = "Manufacturer")]
-    manufacturer: Option<String>,
+    pub manufacturer: Option<String>,
 
     #[serde(rename = "OUI")]
-    oui: Option<String>,
+    pub oui: Option<String>,
 
     #[serde(rename = "ProductClass")]
-    product_class: Option<String>,
+    pub product_class: Option<String>,
 
     #[serde(rename = "SerialNumber")]
     pub serial_number: Option<String>,

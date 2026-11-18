@@ -11,9 +11,12 @@ pub type Db = Pool<Postgres>;
 
 pub async fn new_db_pool() -> sqlx::Result<Db> {
     // * See NOTE 1) below
-    info!("Init Data base with Postgres");
-    let max_connections = if cfg!(test) { 1 } else { 5 };
 
+    let max_connections = if cfg!(test) { 1 } else { 5 };
+    info!(
+        "Init Data base with Postgres {} - Number of connection {max_connections}",
+        &core_config().get_database_connect_string()
+    );
     PgPoolOptions::new()
         .max_connections(max_connections)
         .connect(&core_config().get_database_connect_string())

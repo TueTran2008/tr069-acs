@@ -1,11 +1,18 @@
+use std::sync::Arc;
+
 //use dioxus::prelude::Context;
 use crate::{
+    ctx::Ctx,
     cwmp_msg::{CWMPMsg, Envelope},
+    model::{
+        device::{DeviceBmc, DeviceForCreate},
+        ModelManager,
+    },
     session::cwmp_session::{CWMPSession, CWMPStateAction},
 };
 use kameo::{message::Message, Actor};
-use tracing::{info_span, span, Level};
-use tracing_log::log::info;
+use tracing::info;
+use tracing::info_span;
 
 #[derive(Actor)]
 pub struct DeviceActor {
@@ -20,10 +27,11 @@ pub struct DeviceActor {
 
     //handler:
     state: CWMPSession,
+    mm: Arc<ModelManager>,
 }
 
 impl DeviceActor {
-    pub fn new(session_id: String) -> Self {
+    pub fn new(session_id: String, mm: ModelManager) -> Self {
         Self {
             device_id: String::new(),
             serial_number: String::new(),
@@ -31,6 +39,7 @@ impl DeviceActor {
             product_class: String::new(),
             session_id: Some(session_id.clone()),
             state: CWMPSession::new(session_id.clone()),
+            mm: Arc::new(mm),
         }
     }
 }
@@ -44,10 +53,28 @@ impl Message<Envelope> for DeviceActor {
         _ctx: &mut kameo::message::Context<Self, Self::Reply>,
     ) -> Self::Reply {
         info_span!("");
-        info!("Handle Envelope message {:?}", msg);
         let msg_type = msg.get_msg_type().unwrap();
         match msg_type {
-            CWMPMsg::Inform(_content) => {
+            CWMPMsg::Inform(content) => {
+                // Create new Device into Database or Up
+                let db_context = Ctx::new(1).unwrap();
+                info!(
+                    sn = %content.get_sn().unwrap(),
+                    message = ?msg,
+                    //"Handle CWMP message"
+                );
+
+                //let a = content.get_sn().unwrap().to_string();
+                let device_create = DeviceForCreate::new(
+                    content.get_sn().unwrap().clone(),
+                    content.get_oui().map(|x| x.to_string()),
+                    content.get_product_class().map(|x| x.to_string()),
+                    content.get_manufacture().map(|x| x.to_string()),
+                );
+                //let l_mm = Arc::clone(&self.mm);
+                let _device_dbc =
+                    DeviceBmc::create(&db_context, Arc::clone(&self.mm).as_ref(), device_create)
+                        .await;
                 let response = self
                     .state
                     .apply_action(CWMPStateAction::CWMPStateReceiveInform(
@@ -55,7 +82,7 @@ impl Message<Envelope> for DeviceActor {
                     ))
                     .await
                     .unwrap();
-                return response.unwrap();
+                response.unwrap()
             }
             CWMPMsg::EmptyRPC => {
                 let response = self
@@ -63,7 +90,7 @@ impl Message<Envelope> for DeviceActor {
                     .apply_action(CWMPStateAction::CWMPStateReceiveEmpty)
                     .await
                     .unwrap();
-                return response.unwrap();
+                response.unwrap()
             }
             CWMPMsg::Fault(_) => {
                 let response = self
@@ -71,7 +98,7 @@ impl Message<Envelope> for DeviceActor {
                     .apply_action(CWMPStateAction::CWMPStateReceiveResponse)
                     .await
                     .unwrap();
-                return response.unwrap();
+                response.unwrap()
             }
             CWMPMsg::GetParameterNames(names) => {
                 info!("GPN response {:#?}", names);
@@ -80,7 +107,7 @@ impl Message<Envelope> for DeviceActor {
                     .apply_action(CWMPStateAction::CWMPStateReceiveResponse)
                     .await
                     .unwrap();
-                return response.unwrap();
+                response.unwrap()
             }
             _ => {
                 let response = self
@@ -88,7 +115,7 @@ impl Message<Envelope> for DeviceActor {
                     .apply_action(CWMPStateAction::CWMPStateReceiveResponse)
                     .await
                     .unwrap();
-                return response.unwrap();
+                response.unwrap()
             }
         }
     }
